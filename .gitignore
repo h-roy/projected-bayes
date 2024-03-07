@@ -1,3 +1,80 @@
 /figures/
 /proj/
 /checkpoints/
+src/__pycache__/__init__.cpython-39.pyc
+src/__pycache__/helper.cpython-39.pyc
+src/__pycache__/losses.cpython-39.pyc
+src/data/cifar-10-python.tar.gz
+src/data/__pycache__/__init__.cpython-39.pyc
+src/data/__pycache__/cifar10.cpython-39.pyc
+src/data/__pycache__/cifar100.cpython-39.pyc
+src/data/__pycache__/datasets.cpython-39.pyc
+src/data/__pycache__/fmnist.cpython-39.pyc
+src/data/__pycache__/mnist.cpython-39.pyc
+src/data/__pycache__/svhn.cpython-39.pyc
+src/data/__pycache__/torch_datasets.cpython-39.pyc
+src/data/__pycache__/utils.cpython-39.pyc
+src/data/__pycache__ copy/__init__.cpython-39.pyc
+src/data/__pycache__ copy/cifar10.cpython-39.pyc
+src/data/__pycache__ copy/cifar100.cpython-39.pyc
+src/data/__pycache__ copy/fmnist.cpython-39.pyc
+src/data/__pycache__ copy/mnist.cpython-39.pyc
+src/data/__pycache__ copy/svhn.cpython-39.pyc
+src/data/__pycache__ copy/utils.cpython-39.pyc
+src/data/cifar-10-batches-py/batches.meta
+src/data/cifar-10-batches-py/data_batch_1
+src/data/cifar-10-batches-py/data_batch_2
+src/data/cifar-10-batches-py/data_batch_3
+src/data/cifar-10-batches-py/data_batch_4
+src/data/cifar-10-batches-py/data_batch_5
+src/data/cifar-10-batches-py/readme.html
+src/data/cifar-10-batches-py/test_batch
+src/data/CIFAR-10-C/contrast.npy
+src/data/CIFAR-10-C/defocus_blur.npy
+src/data/CIFAR-10-C/elastic_transform.npy
+src/data/CIFAR-10-C/fog.npy
+src/data/CIFAR-10-C/frost.npy
+src/data/CIFAR-10-C/gaussian_blur.npy
+src/data/CIFAR-10-C/gaussian_noise.npy
+src/data/CIFAR-10-C/glass_blur.npy
+src/data/CIFAR-10-C/impulse_noise.npy
+src/data/CIFAR-10-C/jpeg_compression.npy
+src/data/CIFAR-10-C/labels.npy
+src/data/CIFAR-10-C/motion_blur.npy
+src/data/CIFAR-10-C/pixelate.npy
+src/data/CIFAR-10-C/saturate.npy
+src/data/CIFAR-10-C/shot_noise.npy
+src/data/CIFAR-10-C/snow.npy
+src/data/CIFAR-10-C/spatter.npy
+src/data/CIFAR-10-C/speckle_noise.npy
+src/data/CIFAR-10-C/zoom_blur.npy
+src/models/__pycache__/__init__.cpython-39.pyc
+src/models/__pycache__/convnet.cpython-39.pyc
+src/models/__pycache__/fc.cpython-39.pyc
+src/models/__pycache__/lenet.cpython-39.pyc
+src/models/__pycache__/mlp.cpython-39.pyc
+src/models/__pycache__/resnet.cpython-39.pyc
+src/models/__pycache__/utils.cpython-39.pyc
+src/ood_functions/__pycache__/__init__.cpython-39.pyc
+src/ood_functions/__pycache__/evaluate.cpython-39.pyc
+src/ood_functions/__pycache__/metrics.cpython-39.pyc
+src/sampling/__pycache__/__init__.cpython-39.pyc
+src/sampling/__pycache__/exact_ggn_diffusion.cpython-39.pyc
+src/sampling/__pycache__/exact_ggn.cpython-39.pyc
+src/sampling/__pycache__/invsqrt_vp.cpython-39.pyc
+src/sampling/__pycache__/lanczos_diffusion.cpython-39.pyc
+src/sampling/__pycache__/laplace_ode.cpython-39.pyc
+src/sampling/__pycache__/low_rank.cpython-39.pyc
+src/sampling/__pycache__/predictive_samplers.cpython-39.pyc
+src/sampling/__pycache__/projection_sampling.cpython-39.pyc
+src/training/__pycache__/__init__.cpython-39.pyc
+src/training/__pycache__/maximum_a_posteriori.cpython-39.pyc
+src/UNKNOWN.egg-info/dependency_links.txt
+src/UNKNOWN.egg-info/PKG-INFO
+src/UNKNOWN.egg-info/requires.txt
+src/UNKNOWN.egg-info/SOURCES.txt
+src/UNKNOWN.egg-info/top_level.txt
+src.egg-info/dependency_links.txt
+src.egg-info/PKG-INFO
+src.egg-info/SOURCES.txt
+src.egg-info/top_level.txt
