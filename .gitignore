@@ -1,5 +1,6 @@
 /figures/
 /proj/
+/wandb/
 /checkpoints/
 src/__pycache__/__init__.cpython-39.pyc
 src/__pycache__/helper.cpython-39.pyc
@@ -78,3 +79,17 @@ src.egg-info/dependency_links.txt
 src.egg-info/PKG-INFO
 src.egg-info/SOURCES.txt
 src.egg-info/top_level.txt
+logs/20240974.err
+logs/20240974.out
+src/data/__pycache__/dataloader.cpython-39.pyc
+src/laplace/__pycache__/__init__.cpython-39.pyc
+src/laplace/diagonal/__pycache__/__init__.cpython-39.pyc
+src/laplace/diagonal/__pycache__/exact_diag.cpython-39.pyc
+src/laplace/diagonal/__pycache__/hutchinson.cpython-39.pyc
+src/models/__pycache__/densenet.cpython-39.pyc
+src/models/__pycache__/inception.cpython-39.pyc
+src/models/__pycache__/vit.cpython-39.pyc
+src/training/__pycache__/base_trainer.cpython-39.pyc
+src/training/__pycache__/classification_trainer.cpython-39.pyc
+src/training/__pycache__/train_utils.cpython-39.pyc
+src/training/__pycache__/vit_trainer.cpython-39.pyc

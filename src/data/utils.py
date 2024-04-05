@@ -1,37 +1,13 @@
 import torch
 import numpy as np
+from torchvision.transforms.functional import normalize
+from torch.utils import data
 
 def n_classes(dataset_name):
     if dataset_name == "CIFAR-100":
         return 100
     else:
         return 10
-
-def get_dataloader(dataset, train_size=None, batch_size=512, num_workers=5, pin_memory=False, drop_last=False, shuffle=True, seed=0):
-    # Split into train and test sets
-    if train_size is None:
-        train_size = len(dataset)
-    test_size = len(dataset) - train_size
-    torch.backends.cudnn.deterministic = True
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    if test_size != 0:
-        dataset_train, dataset_test = torch.utils.data.random_split(
-            dataset, (train_size, test_size), generator=torch.Generator().manual_seed(0)
-        )
-        train_loader = torch.utils.data.DataLoader(
-            dataset_train, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last
-        )
-        test_loader = torch.utils.data.DataLoader(
-            dataset_test, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last
-        )
-        return train_loader, test_loader
-    else:
-        loader = torch.utils.data.DataLoader(
-            dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=pin_memory, drop_last=drop_last
-        )
-        return loader, None
-    
 
 def select_num_samples(dataset, n_samples, cls_to_idx, seed=0):
     np.random.seed(seed)
@@ -55,3 +31,32 @@ def select_classes(dataset, classes):
     dataset.data = dataset.data[idxs]
     dataset.targets = dataset.targets[idxs]
     return dataset
+
+def numpy_collate_fn(batch):
+    data, target = zip(*batch)
+    data = np.stack(data)
+    target = np.stack(target)
+    return {"image": data, "label": target}
+
+
+def get_mean_and_std(data_train, val_frac, seed):
+    len_val = int(len(data_train) * val_frac)
+    len_train = len(data_train) - len_val
+
+    data_train, _ = data.random_split(data_train, [len_train, len_val], generator=torch.Generator().manual_seed(seed))
+    _data = data_train.dataset.data[data_train.indices].transpose(0, 3, 1, 2) / 255.0
+    mean_train = _data.mean(axis=(0, 2, 3))
+    std_train = _data.std(axis=(0, 2, 3))
+
+    return {"mean": tuple(mean_train.tolist()), "std": tuple(std_train.tolist())}
+
+
+def image_to_numpy(img):
+    img = np.array(img, dtype=np.float32).transpose(1, 2, 0)
+    return img
+
+
+def channel_normalization(tensor, mean, std):
+    tensor = torch.from_numpy(tensor).float().transpose(1, 3)
+    tensor = normalize(tensor, mean, std)
+    return tensor

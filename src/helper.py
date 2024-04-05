@@ -7,15 +7,19 @@ from functools import partial
 from src.losses import cross_entropy_loss, gaussian_log_lik_loss
 import flax
 import torch
+import importlib
+from typing import Any
+import os
+import random
+import numpy as np
+
 
 def get_ggn_tree_product(
         params,
-        model: flax.linen.Module,
+        model_fn,
         data_array: jax.Array = None,
         data_loader: torch.utils.data.DataLoader = None,
         likelihood_type: str = "regression",
-        is_resnet: bool = False,
-        batch_stats = None
     ):
     """
     takes as input a parameters pytree, a model and a dataset.
@@ -25,11 +29,7 @@ def get_ggn_tree_product(
     if data_array is not None:
         @jax.jit
         def ggn_tree_product(tree):
-            if is_resnet:
-                model_on_data = lambda p: model.apply({'params': p, 'batch_stats': batch_stats}, data_array, train=False, mutable=False)
-            else:
-                model_on_data = lambda p: model.apply(p, data_array)
-
+            model_on_data = lambda p: model_fn(p, data_array)
             _, J_tree = jax.jvp(model_on_data, (params,), (tree,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
             if likelihood_type == "regression":
@@ -49,7 +49,7 @@ def get_ggn_tree_product(
         assert data_loader is not None
         @jax.jit
         def ggn_tree_product_single_batch(tree, data_array):
-            model_on_data = lambda p: model.apply(p, data_array)
+            model_on_data = lambda p: model_fn(p, data_array)
             _, J_tree = jax.jvp(model_on_data, (params,), (tree,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
             if likelihood_type == "regression":
@@ -113,27 +113,21 @@ def get_ggn_vector_product(
 # @partial(jax.jit, static_argnames=("model", "likelihood_type"))
 
 def get_gvp_fun(params,
-                model: flax.linen.Module,
+                model_fn,
                 data_array: jax.Array,
                 batch_size = -1,
                 likelihood_type: str = "regression",
                 sum_type: Literal["running", "parallel"] = "running",
-                is_resnet: bool = False,
-                batch_stats = None,
-
+                v_in_type: Literal["vector", "tree"] = "vector"
   ) -> Callable:
   if sum_type == "running":
     def gvp(eps):
         def scan_fun(carry, batch):
             x_ = batch
             if batch_size>0:
-                model_on_data = lambda p: model.apply(p,x_)
-                if is_resnet:
-                    model_on_data = lambda p: model.apply({'params': p, 'batch_stats': batch_stats}, x_, train=False, mutable=False)
+                model_on_data = lambda p: model_fn(p,x_)
             else:
-                model_on_data = lambda p: model.apply(p,x_[None,:])
-                if is_resnet:
-                    model_on_data = lambda p: model.apply({'params': p, 'batch_stats': batch_stats}, x_[None,:], train=False, mutable=False)
+                model_on_data = lambda p: model_fn(p,x_[None,:])
             # Linearise and use transpose
             _, J_tree = jax.jvp(model_on_data, (params,), (eps,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
@@ -151,28 +145,17 @@ def get_gvp_fun(params,
             JtHJ_tree = model_on_data_vjp(HJ_tree)[0]
             return jax.tree_map(lambda c, v: c + v, carry, JtHJ_tree), None
         init_value = jax.tree_map(lambda x: jnp.zeros_like(x), params)
-        # def true_fn(data_array):
-        #     N = data_array.shape[0]//batch_size
-        #     start_indices= (0,)*(len(data_array.shape))
-        #     # x = data_array[: N * batch_size].reshape((N, batch_size)+ data_array.shape[1:])
-        #     x = jax.lax.dynamic_slice(data_array, start_indices= (0,)*(len(data_array.shape)), slice_sizes=(N * batch_size,) + data_array.shape)
-        #     return x
-        # def false_fn(data_array):
-        #     x = data_array
-        #     return x
-        # x = jax.lax.cond(batch_size>0, true_fn, false_fn, data_array)
-
-        # Make this jitable
-        # return jax.lax.scan(scan_fun, init_value, x)[0]
         return jax.lax.scan(scan_fun, init_value, data_array)[0]
     _, unravel_func_p = jax.flatten_util.ravel_pytree(params)
-
     def matvec(v_like_params):
         p_unravelled = unravel_func_p(v_like_params)
         ggn_vp = gvp(p_unravelled)
         f_eval, _ = jax.flatten_util.ravel_pytree(ggn_vp)
         return f_eval
-    return matvec
+    if v_in_type == "vector":
+        return matvec
+    elif v_in_type == "tree":
+        return gvp
     # return jax.jit(matvec)
   elif sum_type == "parallel":
     def gvp(eps):
@@ -180,9 +163,9 @@ def get_gvp_fun(params,
         def body_fn(batch):  
             x_ = batch
             if batch_size>0:
-                model_on_data = lambda p: model.apply(p,x_)
+                model_on_data = lambda p: model_fn(p,x_)
             else:
-                model_on_data = lambda p: model.apply(p,x_[None,:])
+                model_on_data = lambda p: model_fn(p,x_[None,:])
             # Linearise and use transpose
             _, J_tree = jax.jvp(model_on_data, (params,), (eps,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
@@ -199,12 +182,7 @@ def get_gvp_fun(params,
                 raise ValueError(f"Likelihood {likelihood_type} not supported. Use either 'regression' or 'classification'.")
             JtHJ_tree = model_on_data_vjp(HJ_tree)[0]
             return JtHJ_tree
-        if batch_size>0:
-            N = data_array.shape[0]//batch_size
-            x = data_array[: N * batch_size].reshape((N, batch_size)+ data_array.shape[1:])
-        else:
-            x = data_array
-        return jax.tree_map(lambda x: x.sum(axis=0), body_fn(x))
+        return jax.tree_map(lambda x: x.sum(axis=0), body_fn(data_array))
     _, unravel_func_p = jax.flatten_util.ravel_pytree(params)
     def matvec(v_like_params):
         p_unravelled = unravel_func_p(v_like_params)
@@ -212,7 +190,10 @@ def get_gvp_fun(params,
         f_eval, _ = jax.flatten_util.ravel_pytree(ggn_vp)
         return f_eval
     # return jax.jit(matvec)
-    return matvec
+    if v_in_type == "vector":
+        return matvec
+    elif v_in_type == "tree":
+        return gvp
   
 def compute_num_params(pytree):
     return sum(x.size if hasattr(x, "size") else 0 for x in jax.tree_util.tree_leaves(pytree))
@@ -273,4 +254,33 @@ def tree_random_uniform_like(rng_key, target, n_samples: Optional[int] = None, m
             keys_tree,
         )
 
+def load_obj(obj_path: str, default_obj_path: str = "") -> Any:
+    """
+    Extract an object from a given path.
+    https://github.com/quantumblacklabs/kedro/blob/9809bd7ca0556531fa4a2fc02d5b2dc26cf8fa97/kedro/utils.py
+        Args:
+            obj_path: Path to an object to be extracted, including the object name.
+            default_obj_path: Default object path.
+        Returns:
+            Extracted object.
+        Raises:
+            AttributeError: When the object does not have the given named attribute.
+    """
+    obj_path_list = obj_path.rsplit(".", 1)
+    obj_path = obj_path_list.pop(0) if len(obj_path_list) > 1 else default_obj_path
+    obj_name = obj_path_list[0]
+    module_obj = importlib.import_module(obj_path)
+    if not hasattr(module_obj, obj_name):
+        raise AttributeError(f"Object `{obj_name}` cannot be loaded from `{obj_path}`.")
+    return getattr(module_obj, obj_name)
 
+
+def set_seed(seed: int = 666, precision: int = 10) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.set_printoptions(precision=precision)

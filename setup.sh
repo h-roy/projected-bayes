@@ -1,4 +1,4 @@
-module load python3/3.11.4 cuda/12.2 cudnn/v8.9.1.23-prod-cuda-12.X
+module load python3/3.11.4 cuda/12.3.2 cudnn/v8.9.1.23-prod-cuda-12.X
 python3 -m pip install --upgrade pip
 python3 -m venv proj/
 source ./proj/bin/activate

@@ -9,44 +9,7 @@ config.update("jax_debug_nans", True)
 
 from functools import partial
 
-def kernel_vp(fn, v, batch_size, output_dims, params):
-    _, jtv_fn = jax.vjp(fn, params)
-    Jtv = jtv_fn(v.reshape((batch_size, output_dims)))[0]
-    _, JJtv = jax.jvp(fn, (params,), (Jtv,))
-    return JJtv
 
-
-
-def precompute_inv(
-        model_fn: Callable,
-        params,
-        x_train_batched,
-        output_dim: int,
-        n_batches: int,
-):
-    def body_fn(carry, batch):
-        x = batch
-        lmbd = lambda p: model_fn(p, x)
-        def kvp(v):
-            _, jtv_fn = jax.vjp(lmbd, params)
-            Jtv = jtv_fn(v.reshape((x.shape[0], output_dim)))[0]
-            _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-            return JJtv 
-        # kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dims, params=params)
-        batch_size = x.shape[0]
-        JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((x.shape[0], output_dim)))
-        JJt = JJt.reshape(batch_size * output_dim, batch_size * output_dim)
-        eigvals, eigvecs = jnp.linalg.eigh(JJt)
-        idx = eigvals < 1e-7
-        inv_eigvals = jnp.where(idx, 1., eigvals)
-        inv_eigvals = 1/inv_eigvals
-        inv_eigvals = jnp.where(idx, 0., inv_eigvals)
-        return None, (inv_eigvals, eigvecs)
-
-    init_spec = None #(jnp.empty((batch_size * output_dims,)), jnp.empty((batch_size * output_dims, batch_size * output_dims)))
-    _, (inv_eigvals, eigvecs) = jax.lax.scan(body_fn, init_spec, x_train_batched, unroll=1)
-    return inv_eigvals, eigvecs
-    
 def ker_proj_vp(
         model_fn: Callable,
         params,
@@ -70,13 +33,11 @@ def ker_proj_vp(
         return (tm.Vector(v) - tm.Vector(Jt_JJt_inv_Jv)).tree
     
     def proj_through_data(iter, v):
-        def body_fun(carry, batch):
-            x, eigvecs, inv_eigvals = batch
-            pv = carry
-            out = orth_proj_vp(pv, x, eigvecs, inv_eigvals)
-            return out, None
-        init_carry = v
-        v_, _ = jax.lax.scan(body_fun, init_carry, (x_train_batched, batched_eigvecs, batched_inv_eigvals)) #memory error?
+        def body_fun(n, res):
+            jax.debug.print("batch num: {x}", x=n)
+            out = orth_proj_vp(res, x_train_batched[n], batched_eigvecs[n], batched_inv_eigvals[n])
+            return out
+        v_ = jax.lax.fori_loop(0, n_batches, body_fun, v) #memory error?
         return v_
     @jax.jit
     def proj_prior(v):
@@ -88,62 +49,58 @@ def ker_proj_vp(
     return proj_prior
 
 
-# def precompute_inv(
-#         model_fn: Callable,
-#         params,
-#         x_train_batched,
-#         output_dim: int,
-#         n_batches: int,
-#         type: Literal["running", "parallel"] = "running"
-# ):
-#     if type == "running":
-#         def body_fn(n, res):
-#             x = x_train_batched[n]
-#             carry_eigvecs, carry_inv_eigvals = res
-#             lmbd = lambda p: model_fn(p, x)
-#             # def kvp(v_):
-#             #     _, jtv_fn = jax.vjp(lmbd, params)
-#             #     Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
-#             #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-#             #     return JJtv    
-#             lmbd = lambda p: model_fn(p, x)
-#             kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params) 
-#             JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim))) # memory issue?
-#             JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
-#             eigvals, eigvecs = jnp.linalg.eigh(JJt)
-#             idx = eigvals < 1e-7
-#             inv_eigvals = jnp.where(idx, 1., eigvals)
-#             inv_eigvals = 1/inv_eigvals
-#             inv_eigvals = jnp.where(idx, 0., inv_eigvals)
-#             carry_eigvecs = carry_eigvecs.at[n].set(eigvecs)
-#             carry_inv_eigvals = carry_inv_eigvals.at[n].set(inv_eigvals)
-#             return (carry_eigvecs, carry_inv_eigvals)
-#         batch_size = x_train_batched.shape[1]
-#         init_eigvecs, init_inv_eigvals = jnp.zeros((n_batches, batch_size * output_dim, batch_size * output_dim)), jnp.zeros((n_batches, batch_size * output_dim,))
-#         eigvecs, inv_eigvals = jax.lax.fori_loop(0, n_batches, body_fn, (init_eigvecs, init_inv_eigvals)) # Scan over the data
-#         return eigvecs, inv_eigvals
-#     elif type == "parallel":
-#         print("--> Here")
-#         def body_fn(x):
+def precompute_inv(
+        model_fn: Callable,
+        params,
+        x_train_batched,
+        output_dim: int,
+        n_batches: int,
+        type: Literal["running", "parallel"] = "running"
+):
+    if type == "running":
+        def body_fn(n, res):
+            x = x_train_batched[n]
+            carry_eigvecs, carry_inv_eigvals = res
+            lmbd = lambda p: model_fn(p, x)
+            def kvp(v_):
+                _, jtv_fn = jax.vjp(lmbd, params)
+                Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
+                _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
+                return JJtv    
+            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim))) # memory issue?
+            JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
+            eigvals, eigvecs = jnp.linalg.eigh(JJt)
+            idx = eigvals < 1e-7
+            inv_eigvals = jnp.where(idx, 1., eigvals)
+            inv_eigvals = 1/inv_eigvals
+            inv_eigvals = jnp.where(idx, 0., inv_eigvals)
+            carry_eigvecs = carry_eigvecs.at[n].set(eigvecs)
+            carry_inv_eigvals = carry_inv_eigvals.at[n].set(inv_eigvals)
+            return (carry_eigvecs, carry_inv_eigvals)
+        batch_size = x_train_batched.shape[1]
+        init_eigvecs, init_inv_eigvals = jnp.zeros((n_batches, batch_size * output_dim, batch_size * output_dim)), jnp.zeros((n_batches, batch_size * output_dim,))
+        eigvecs, inv_eigvals = jax.lax.fori_loop(0, n_batches, body_fn, (init_eigvecs, init_inv_eigvals)) # Scan over the data
+        return eigvecs, inv_eigvals
+    elif type == "parallel":
+        print("--> Here")
+        def body_fn(x):
             
-#             # def kvp(v_):
-#             #     lmbd = lambda p: model_fn(p, x)
-#             #     _, jtv_fn = jax.vjp(lmbd, params)
-#             #     Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
-#             #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-#             #     return JJtv 
-#             lmbd = lambda p: model_fn(p, x)
-#             kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)   
-#             JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
-#             JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
-#             eigvals, eigvecs = jnp.linalg.eigh(JJt)
-#             idx = eigvals < 1e-7
-#             inv_eigvals = jnp.where(idx, 1., eigvals)
-#             inv_eigvals = 1/inv_eigvals
-#             inv_eigvals = jnp.where(idx, 0., inv_eigvals)
-#             return eigvecs, inv_eigvals
-#         eigvecs, inv_eigvals = jax.lax.map(body_fn, x_train_batched)
-#         return eigvecs, inv_eigvals
+            def kvp(v_):
+                lmbd = lambda p: model_fn(p, x)
+                _, jtv_fn = jax.vjp(lmbd, params)
+                Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
+                _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
+                return JJtv    
+            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
+            JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
+            eigvals, eigvecs = jnp.linalg.eigh(JJt)
+            idx = eigvals < 1e-7
+            inv_eigvals = jnp.where(idx, 1., eigvals)
+            inv_eigvals = 1/inv_eigvals
+            inv_eigvals = jnp.where(idx, 0., inv_eigvals)
+            return eigvecs, inv_eigvals
+        eigvecs, inv_eigvals = jax.lax.map(body_fn, x_train_batched)
+        return eigvecs, inv_eigvals
 
 @partial(jax.jit, static_argnames=("n_posterior_samples", "output_dim", "n_batches", "n_iterations", "model_fn"))
 def sample_projections( 
@@ -159,10 +116,8 @@ def sample_projections(
 ):
     eps = tree_random_normal_like(key, params, n_posterior_samples)
     prior_samples = jax.tree_map(lambda x: 1/jnp.sqrt(alpha) * x, eps)
-    # batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, n_batches, "running")
-    # batch_size = x_train_batched.shape[1]
-    batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, n_batches)
-    # batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, n_batches, "running")
+    # batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, n_batches, "parallel")
+    batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, n_batches, "running")
     proj_vp_fn = ker_proj_vp(model_fn, params, x_train_batched, batched_eigvecs, batched_inv_eigvals, n_batches, output_dim, n_iterations)
     # im_proj_vp = lambda v: (tm.Vector(v) - tm.Vector(proj_vp_fn(v))).tree
     # proj_vp_fn = random_proj_vp(model_fn, params, x_train_batched, n_batches, output_dim, n_iterations, loss_type)

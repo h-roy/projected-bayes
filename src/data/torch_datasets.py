@@ -2,69 +2,41 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 import torchvision as tv
-import numpy as np
+
 import urllib.request
 import tarfile
+
 import cv2
 import numpy as np
-from torchvision.transforms.functional import normalize
+from torchvision import transforms as T
+from typing import Literal
+from PIL import Image
 
-
-def select_num_samples(dataset, n_samples, cls_to_idx):
-    idxs = []
-    for key,_ in cls_to_idx.items():
-        indices = np.where(dataset.targets == key)[0]
-        idxs.append(np.random.choice(indices, n_samples, replace=False))
-    idxs = np.concatenate(idxs)
-    dataset.data = dataset.data[idxs]
-    dataset.targets = dataset.targets[idxs]
-    return dataset
-
-
-def select_classes(dataset, classes):
-    idxs = []
-    for i in classes:
-        indices = np.where(dataset.targets == i)[0]
-        idxs.append(indices)
-    idxs = np.concatenate(idxs).astype(int)
-    dataset.data = dataset.data[idxs]
-    dataset.targets = dataset.targets[idxs]
-    return dataset
-
-
-def numpy_collate_fn(batch):
-    data, target = zip(*batch)
-    data = np.stack(data)
-    target = np.stack(target)
-    return {"image": data, "label": target}
-
-
-def channel_normalization(tensor, mean, std):
-    tensor = torch.from_numpy(tensor).float().transpose(1, 3)
-    tensor = normalize(tensor, mean, std)
-    return tensor
+from .utils import select_classes, select_num_samples, image_to_numpy
 
 
 class MNIST(torch.utils.data.Dataset):
     def __init__(
         self,
-        path_root="/work3/hroy/data/",
-        train: bool = True,
-        transform = None,
+        path_root="/dtu/p1/hroy/data/",
+        set_purp: Literal["train", "val", "test"] = "train",
         n_samples: int = None,
         cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         download=True,
+        normalizing_stats=None,
+        transform=None,
     ):
+        self.set = set_purp
         self.path = Path(path_root)
-        if train:
+        if self.set == "train" or self.set == "val":
             self.dataset = tv.datasets.MNIST(root=self.path, train=True, download=download)
         else:
             self.dataset = tv.datasets.MNIST(root=self.path, train=False, download=download)
         self.transfrm = transform
-        
-        clas_to_index = { c : i for i, c in enumerate(cls)}
-        if len(cls)<10:
-                self.dataset = select_classes(self.dataset, cls)
+
+        clas_to_index = {c: i for i, c in enumerate(cls)}
+        if len(cls) < 10:
+            self.dataset = select_classes(self.dataset, cls)
         if n_samples is not None:
             self.dataset = select_num_samples(self.dataset, n_samples, clas_to_index)
 
@@ -82,28 +54,29 @@ class MNIST(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.data)
-
 
 
 class FashionMNIST(torch.utils.data.Dataset):
     def __init__(
-        self, 
-        path_root="/work3/hroy/data/", 
-        train: bool = True, 
-        transform=None, 
-        n_samples: int = None, 
-        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 
-        download=True
+        self,
+        path_root="/dtu/p1/hroy/data/",
+        set_purp: Literal["train", "val", "test"] = "train",
+        n_samples: int = None,
+        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        download=True,
+        normalizing_stats=None,
+        transform=None,
     ):
+        self.set = set_purp
         self.path = Path(path_root)
-        if train:
+        if self.set == "train" or self.set == "val":
             self.dataset = tv.datasets.FashionMNIST(root=self.path, train=True, download=download)
         else:
             self.dataset = tv.datasets.FashionMNIST(root=self.path, train=False, download=download)
         self.transfrm = transform
-        
-        clas_to_index = { c : i for i, c in enumerate(cls)}
-        if len(cls)<10:
+
+        clas_to_index = {c: i for i, c in enumerate(cls)}
+        if len(cls) < 10:
             self.dataset = select_classes(self.dataset, cls)
         if n_samples is not None:
             self.dataset = select_num_samples(self.dataset, n_samples, clas_to_index)
@@ -123,59 +96,128 @@ class FashionMNIST(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
+
 class CIFAR10(torch.utils.data.Dataset):
     def __init__(
-        self, 
-        path_root="/work3/hroy/data/", 
-        train: bool = True, 
-        transform=None, 
-        n_samples: int = None, 
-        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 
-        download=True
+        self,
+        path_root="/dtu/p1/hroy/data/",
+        set_purp: Literal["train", "val", "test"] = "train",
+        n_samples: int = None,
+        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        download=True,
+        normalizing_stats=None,
     ):
         self.path = Path(path_root)
-        if train:
+        self.set = set_purp
+        self.mean = None if normalizing_stats is None else normalizing_stats["mean"]
+        self.std = None if normalizing_stats is None else normalizing_stats["std"]
+
+        if self.set == "train" or self.set == "val":
             self.dataset = tv.datasets.CIFAR10(root=self.path, train=True, download=download)
+            self.train_transform = T.Compose(
+                [
+                    T.RandomCrop((32, 32), padding=4),
+                    T.RandomHorizontalFlip(),
+                    T.ToTensor(),
+                    T.Normalize(self.mean, self.std),
+                    image_to_numpy,
+                ]
+            )
             self.dataset.targets = np.array(self.dataset.targets)
         else:
             self.dataset = tv.datasets.CIFAR10(root=self.path, train=False, download=download)
-            self.dataset.targets = np.array(self.dataset.targets)
-        self.transfrm = transform
-        
-        clas_to_index = { c : i for i, c in enumerate(cls)}
-        if len(cls)<10:
+
+        clas_to_index = {c: i for i, c in enumerate(cls)}
+        if len(cls) < 10:
             self.dataset = select_classes(self.dataset, cls)
         if n_samples is not None:
             self.dataset = select_num_samples(self.dataset, n_samples, clas_to_index)
 
-        self.dataset.targets = torch.tensor([clas_to_index[clas.item()] for clas in self.dataset.targets])
-            
-        self.data = channel_normalization(
-            self.dataset.data,
-            [0.4914 * 255.0, 0.4822 * 255.0, 0.4465 * 255.0],
-            [0.247 * 255.0, 0.243 * 255.0, 0.261 * 255.0],
-        ).numpy()
+        self.test_transform = T.Compose([T.ToTensor(), T.Normalize(self.mean, self.std), image_to_numpy])
+
+        self.data = self.dataset.data
         self.targets = F.one_hot(torch.tensor(self.dataset.targets), len(cls)).numpy()
+
+        # del self.dataset
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
-        if self.transfrm is not None:
-            img = self.transfrm(torch.from_numpy(img)).numpy()
+        img = Image.fromarray(img)
+        if self.set == "train":
+            img = self.train_transform(img)
+        else:
+            img = self.test_transform(img)
+        return img, target
+    
+    def __len__(self):
+        return len(self.data)
+
+
+class CIFAR100(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        path_root="/dtu/p1/hroy/data/",
+        set_purp: Literal["train", "val", "test"] = "train",
+        n_samples: int = None,
+        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        download=True,
+        normalizing_stats=None,
+    ):
+        self.path = Path(path_root)
+        self.set = set_purp
+        self.mean = None if normalizing_stats is None else normalizing_stats["mean"]
+        self.std = None if normalizing_stats is None else normalizing_stats["std"]
+
+        if self.set == "train" or self.set == "val":
+            self.dataset = tv.datasets.CIFAR100(root=self.path, train=True, download=download)
+            self.train_transform = T.Compose(
+                [
+                    T.RandomCrop((32, 32), padding=4),
+                    T.RandomHorizontalFlip(),
+                    T.ToTensor(),
+                    T.Normalize(self.mean, self.std),
+                    image_to_numpy,
+                ]
+            )
+            self.dataset.targets = np.array(self.dataset.targets)
+        else:
+            self.dataset = tv.datasets.CIFAR100(root=self.path, train=False, download=download)
+
+        clas_to_index = {c: i for i, c in enumerate(cls)}
+        if len(cls) < 10:
+            self.dataset = select_classes(self.dataset, cls)
+        if n_samples is not None:
+            self.dataset = select_num_samples(self.dataset, n_samples, clas_to_index)
+
+        self.test_transform = T.Compose([T.ToTensor(), T.Normalize(self.mean, self.std), image_to_numpy])
+
+        self.data = self.dataset.data
+        self.targets = F.one_hot(torch.tensor(self.dataset.targets), len(cls)).numpy()
+
+        del self.dataset
+
+    def __getitem__(self, index):
+        img, target = self.data[index], self.targets[index]
+        img = Image.fromarray(img)
+        if self.set == "train":
+            img = self.train_transform(img)
+        else:
+            img = self.test_transform(img)
         return img, target
 
     def __len__(self):
         return len(self.data)
-
 
 
 class ImageNette(torch.utils.data.Dataset):
     def __init__(
         self,
-        path_root="/work3/hroy/data/",
+        path_root="/dtu/p1/hroy/data/",
+        set_purp: Literal["train", "val", "test"] = "train",
         size="320",
         train=True,
         n_samples=None,
-        cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        cls_test=None,
         in_memory=True,
         download=True,
     ):
@@ -205,7 +247,12 @@ class ImageNette(torch.utils.data.Dataset):
             n03888257="parachute",
         )
 
-        labels = [key for i, key in enumerate(self.LBL_DICT.keys()) if i in cls]
+        labels_train = None
+        labels_test = None
+
+        if cls_test is not None:
+            labels_train = [key for i, key in enumerate(self.LBL_DICT.keys()) if i != cls_test]
+            labels_test = [key for i, key in enumerate(self.LBL_DICT.keys())]
 
         self.n_samples = n_samples
         self.train = train
@@ -221,14 +268,13 @@ class ImageNette(torch.utils.data.Dataset):
 
         if self.train:
             self.data_path = self.extract_path / self.get_filename().rpartition(".")[0] / "train/"
+            if self.n_samples is not None:
+                self.make_dataset_n_samples(labels_train)
+            else:
+                self.make_dataset(labels_train)
         else:
             self.data_path = self.extract_path / self.get_filename().rpartition(".")[0] / "val/"
-            self.make_dataset(labels)
-        
-        if self.n_samples is not None:
-            self.make_dataset_n_samples(labels)
-        else:
-            self.make_dataset(labels)
+            self.make_dataset(labels_test)
 
     def __getitem__(self, index):
         if self.in_memory:
@@ -286,9 +332,8 @@ class ImageNette(torch.utils.data.Dataset):
             self.files[folder.name] = list(folder.iterdir())
             num_files += len(list(folder.iterdir()))
         self.num_files = num_files
-
         self.labels = {
-            key: F.one_hot(torch.tensor([int(i)]), len(self.LBL_DICT.keys())).squeeze().numpy() for i, key in enumerate(self.LBL_DICT.keys())
+            key: F.one_hot(torch.tensor([int(i)]), 10).squeeze().numpy() for i, key in enumerate(self.LBL_DICT.keys())
         }
         if self.in_memory:
             self._load_all_images()
@@ -306,7 +351,7 @@ class ImageNette(torch.utils.data.Dataset):
             num_files += self.n_samples
         self.num_files = num_files
         self.labels = {
-            key: F.one_hot(torch.tensor([int(i)]), len(self.LBL_DICT.keys())).squeeze().numpy() for i, key in enumerate(self.LBL_DICT.keys())
+            key: F.one_hot(torch.tensor([int(i)]), 10).numpy() for i, key in enumerate(self.LBL_DICT.keys())
         }
         if self.in_memory:
             self._load_all_images()
@@ -355,4 +400,3 @@ class ImageNette(torch.utils.data.Dataset):
         y = center[0] / 2 - image_size / 2
 
         return image[int(y) : int(y + image_size), int(x) : int(x + image_size)]
-
