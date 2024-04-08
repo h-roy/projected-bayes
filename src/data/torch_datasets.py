@@ -106,6 +106,7 @@ class CIFAR10(torch.utils.data.Dataset):
         cls: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         download=True,
         normalizing_stats=None,
+        transform=None, 
     ):
         self.path = Path(path_root)
         self.set = set_purp
@@ -137,7 +138,7 @@ class CIFAR10(torch.utils.data.Dataset):
 
         self.data = self.dataset.data
         self.targets = F.one_hot(torch.tensor(self.dataset.targets), len(cls)).numpy()
-
+        self.transform = transform
         # del self.dataset
 
     def __getitem__(self, index):
@@ -147,6 +148,8 @@ class CIFAR10(torch.utils.data.Dataset):
             img = self.train_transform(img)
         else:
             img = self.test_transform(img)
+        if self.transform is not None:
+            img = self.transform(torch.from_numpy(img)).numpy()
         return img, target
     
     def __len__(self):

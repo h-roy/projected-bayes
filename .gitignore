@@ -2,6 +2,7 @@
 /proj/
 /wandb/
 /checkpoints/
+/logs/
 src/__pycache__/__init__.cpython-39.pyc
 src/__pycache__/helper.cpython-39.pyc
 src/__pycache__/losses.cpython-39.pyc
@@ -93,3 +94,17 @@ src/training/__pycache__/base_trainer.cpython-39.pyc
 src/training/__pycache__/classification_trainer.cpython-39.pyc
 src/training/__pycache__/train_utils.cpython-39.pyc
 src/training/__pycache__/vit_trainer.cpython-39.pyc
+experiments/data/cifar-10-python.tar.gz
+experiments/data/cifar-10-batches-py/batches.meta
+experiments/data/cifar-10-batches-py/data_batch_1
+experiments/data/cifar-10-batches-py/data_batch_2
+experiments/data/cifar-10-batches-py/data_batch_3
+experiments/data/cifar-10-batches-py/data_batch_4
+experiments/data/cifar-10-batches-py/data_batch_5
+experiments/data/cifar-10-batches-py/readme.html
+experiments/data/cifar-10-batches-py/test_batch
+logs/21233925.err
+logs/21233925.out
+src/sampling/__pycache__/alternating_projections.cpython-39.pyc
+src/sampling/__pycache__/precompute_inv.cpython-39.pyc
+memory.prof

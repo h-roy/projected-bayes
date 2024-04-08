@@ -63,9 +63,9 @@ def get_rotated_fmnist_loaders(angle, data_path, batch_size=256, download=False,
     shift_val_loader, shift_test_loader = val_test_split(rotated_fmnist_val_test_set, val_size=0, batch_size=batch_size)
     return shift_val_loader, shift_test_loader
 
-def get_rotated_cifar_loaders(angle, data_path, batch_size=256, download=False, n_datapoint=None):
+def get_rotated_cifar_loaders(angle, data_path, train_stats, batch_size=256, download=False, n_datapoint=None):
     shift_tforms = transforms.Compose([RotationTransform(angle)])
-    rotated_cifar_val_test_set = CIFAR10(data_path, train=False, transform=shift_tforms, download=download)
+    rotated_cifar_val_test_set = CIFAR10(data_path, set_purp="train", transform=shift_tforms, download=download, normalizing_stats=train_stats)
     rotated_cifar_val_test_set = rotated_cifar_val_test_set if n_datapoint is None else Subset(rotated_cifar_val_test_set, range(n_datapoint))
     shift_val_loader, shift_test_loader = val_test_split(rotated_cifar_val_test_set, val_size=0, batch_size=batch_size)
     return shift_val_loader, shift_test_loader

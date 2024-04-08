@@ -15,8 +15,10 @@ def get_dataloaders(
     val_frac: float = 0.1,
     n_samples: int = None,
     cls: int = None,
+    shuffle: bool = True,
 ):
     train_stats = None
+    print(shuffle)
 
     if not dataset in ["MNIST", "FMNIST"]:
         train_stats = get_mean_and_std(
@@ -45,7 +47,7 @@ def get_dataloaders(
     train_loader = data.DataLoader(
         data_train,
         batch_size=bs,
-        shuffle=True,
+        shuffle=shuffle,
         drop_last=True,
         collate_fn=numpy_collate_fn,
         num_workers=8,
@@ -55,7 +57,7 @@ def get_dataloaders(
     val_loader = data.DataLoader(
         data_val,
         batch_size=bs,
-        shuffle=False,
+        shuffle=shuffle,
         drop_last=False,
         collate_fn=numpy_collate_fn,
         num_workers=4,
@@ -65,7 +67,7 @@ def get_dataloaders(
     test_loader = data.DataLoader(
         data_test,
         batch_size=bs,
-        shuffle=False,
+        shuffle=shuffle,
         drop_last=False,
         collate_fn=numpy_collate_fn,
         num_workers=4,

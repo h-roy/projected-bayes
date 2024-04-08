@@ -14,21 +14,24 @@ from src.models import LeNet, MLP, ResNet, ResNetBlock, VisionTransformer
 from src.losses import cross_entropy_loss, accuracy_preds, nll
 from src.helper import calculate_exact_ggn, tree_random_normal_like, compute_num_params
 from src.sampling.predictive_samplers import sample_predictive, sample_hessian_predictive
-from src.sampling.projection_sampling import sample_projections
+from src.sampling.projection_sampling import sample_projections, sample_projections_dataloader
 from jax import flatten_util
+from torch.utils import data
+
 import matplotlib.pyplot as plt
 from src.data.datasets import get_rotated_mnist_loaders
-from src.data import MNIST, FashionMNIST, CIFAR10, CIFAR100, SVHN, n_classes
+from src.data import MNIST, FashionMNIST, CIFAR10, CIFAR100, SVHN, n_classes, get_dataloaders
 from src.ood_functions.evaluate import evaluate
 from src.ood_functions.metrics import compute_metrics
-from src.data.utils import get_mean_and_std
+from src.data.utils import get_mean_and_std, numpy_collate_fn
+# from jax import config
+# config.update("jax_disable_jit", True)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/MNIST/LeNet/OOD_MNIST_seed420", help="path of model")
 parser.add_argument("--run_name", default=None, help="Fix the save file name.")
-parser.add_argument("--diffusion_steps", type=int, default=20)
 parser.add_argument("--num_samples", type=int, default=2)
-parser.add_argument("--lanczos_iters", type=int, default=1000)
 parser.add_argument("--sample_seed",  type=int, default=0)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
 
@@ -89,9 +92,8 @@ if __name__ == "__main__":
     x_train = jnp.array([data[0] for data in dataset])
     y_train = jnp.array([data[1] for data in dataset])
 
-    n_iterations = 100
+    n_iterations = 1500
     n_samples = args.num_samples
-    rank = args.lanczos_iters
     n_params = compute_num_params(params)
     alpha = args.posthoc_precision
     sample_key = jax.random.PRNGKey(args.sample_seed)
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     start_time = time.time()
     N = 1000
     # bs = 30
-    bs = 65
+    bs = 20
     x_train = x_train#[:N]
     y_train = y_train#[:N]
     labels = jnp.where(y_train==1.)[1]
@@ -108,17 +110,35 @@ if __name__ == "__main__":
     y_train = y_train[idx,:]
     n_batches = x_train.shape[0] // bs
     x_train_batched = x_train[:n_batches * bs].reshape((n_batches, -1) + x_train.shape[1:])
-    # model_fn = lambda p, x: model.apply({'params': p, 'batch_stats': batch_stats}, x, train=False, mutable=False)
+    model_fn = lambda p, x: model.apply({'params': p, 'batch_stats': batch_stats}, x, train=False, mutable=False)
     posterior_samples = sample_projections(model_fn,
                                            params,
                                            x_train_batched,
-                                           n_batches,
                                            sample_key,
                                            alpha,
                                            output_dim,
                                            n_samples,
-                                           n_iterations)                                        
-    print(f"Lanczos diffusion (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples and {rank} iterations) took {time.time()-start_time:.5f} seconds")
+                                           n_iterations)
+    # train_loader = data.DataLoader(
+    #     dataset,
+    #     batch_size=bs,
+    #     # shuffle=False,
+    #     drop_last=True,
+    #     collate_fn=numpy_collate_fn,
+    #     sampler = data.sampler.SequentialSampler(dataset)
+    # )
+    # posterior_samples = sample_projections_dataloader(
+    #                                     model_fn,
+    #                                     params,
+    #                                     train_loader,
+    #                                     sample_key,
+    #                                     alpha,
+    #                                     output_dim,
+    #                                     n_samples,
+    #                                     n_iterations)
+
+
+    print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")
     pred_posterior = sample_predictive(posterior_samples, params, model_fn, x_train[:N], True, "Pytree")
     map_preds = model_fn(params, x_train[:N])
     def check_if_kernel(posterior):
@@ -130,7 +150,7 @@ if __name__ == "__main__":
     print("Distance from Map:", jax.vmap(lambda x,y : jnp.linalg.norm(x - y)/jnp.linalg.norm(y), in_axes=(0,None))(pred_posterior, map_preds))
     print("MAP accuracy:", accuracy_preds(map_preds, y_train[:N])/N * 100)
     print("Predictive accuracy:", jax.vmap(accuracy_preds, in_axes=(0,None))(pred_posterior, y_train[:N])/N * 100)
-    breakpoint()
+    # breakpoint()
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }
