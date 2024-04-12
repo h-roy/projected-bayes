@@ -2,6 +2,7 @@
 /proj/
 /wandb/
 /checkpoints/
+/experiments/data/
 /logs/
 src/__pycache__/__init__.cpython-39.pyc
 src/__pycache__/helper.cpython-39.pyc

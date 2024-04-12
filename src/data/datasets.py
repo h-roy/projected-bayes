@@ -200,7 +200,7 @@ def get_mnist_ood_loaders(ood_dataset, data_path="./data", batch_size=256, downl
     return val_loader, test_loader
 
 
-def get_cifar10_ood_loaders(ood_dataset, data_path="./data", batch_size=512, download=False, n_datapoint=None):
+def get_cifar10_ood_loaders(ood_dataset, train_stats, data_path="./data", batch_size=512, download=False, n_datapoint=None):
     """Get out-of-distribution val/test sets and val/test loaders (in-distribution: CIFAR-10)"""
     if ood_dataset == "SVHN":
         svhn_tforms = transforms.Compose(
@@ -223,7 +223,8 @@ def get_cifar10_ood_loaders(ood_dataset, data_path="./data", batch_size=512, dow
         cifar100_val_test_set = cifar100_val_test_set if n_datapoint is None else Subset(cifar100_val_test_set, range(n_datapoint))
         val_loader, test_loader = val_test_split(cifar100_val_test_set, batch_size=batch_size, val_size=0)
     elif ood_dataset == "CIFAR-10":
-        cifar10_val_test_set = CIFAR10(data_path, train=False, download=download)
+        cifar10_val_test_set = CIFAR10(data_path, set_purp="test", transform=None, download=download, normalizing_stats=train_stats)
+        # cifar10_val_test_set = CIFAR10(data_path, train=False, download=download)
         cifar10_val_test_set = cifar10_val_test_set if n_datapoint is None else Subset(cifar10_val_test_set, range(n_datapoint))
         val_loader, test_loader = val_test_split(cifar10_val_test_set, batch_size=batch_size, val_size=0)
     else:

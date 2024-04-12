@@ -31,7 +31,7 @@ from src.data.utils import get_mean_and_std, numpy_collate_fn
 parser = argparse.ArgumentParser()
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/MNIST/LeNet/OOD_MNIST_seed420", help="path of model")
 parser.add_argument("--run_name", default=None, help="Fix the save file name.")
-parser.add_argument("--num_samples", type=int, default=2)
+parser.add_argument("--num_samples", type=int, default=5)
 parser.add_argument("--sample_seed",  type=int, default=0)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     x_train = jnp.array([data[0] for data in dataset])
     y_train = jnp.array([data[1] for data in dataset])
 
-    n_iterations = 1500
+    n_iterations = 200
     n_samples = args.num_samples
     n_params = compute_num_params(params)
     alpha = args.posthoc_precision
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     start_time = time.time()
     N = 1000
     # bs = 30
-    bs = 20
+    bs = 30
     x_train = x_train#[:N]
     y_train = y_train#[:N]
     labels = jnp.where(y_train==1.)[1]
