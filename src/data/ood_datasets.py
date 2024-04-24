@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import jax.numpy as jnp
 from torch.utils.data import Subset
 from .torch_datasets import CIFAR10, FashionMNIST, MNIST
-
+from src.data.utils import get_mean_and_std
 
 # This file adapted from laplace-redux to ensure the same evaluation set.
 # most of code from laplace-redux/utils/data_utils.py
@@ -99,9 +99,11 @@ def load_corrupted_cifar10(severity, data_path="data", batch_size=256, cuda=True
     return loader
 
 
-def load_corrupted_cifar10_per_type(severity_level, corr_type, data_path="data", batch_size=256, cuda=True, workers=1, n_datapoint=None):
+def load_corrupted_cifar10_per_type(severity_level, corr_type, sample_seed, data_path='/dtu/p1/hroy/data', batch_size=256, cuda=True, workers=1, n_datapoint=None):
+    """load corrupted CIFAR10 dataset"""
+    cls = list(range(10))
     if severity_level==0:
-        cifar10_val_test_set = CIFAR10(data_path, train=False, download=True)
+        cifar10_val_test_set = CIFAR10(path_root='/dtu/p1/hroy/data', set_purp="test", n_samples=100, download=True, cls=cls)
         cifar10_val_test_set = cifar10_val_test_set if n_datapoint is None else Subset(cifar10_val_test_set, range(n_datapoint))
         _, test_loader = val_test_split(cifar10_val_test_set, batch_size=batch_size, val_size=0)
         return test_loader
@@ -148,7 +150,7 @@ def get_cifar10_train_set(
         tforms_train = tforms_test
 
     # Get datasets and data loaders
-    train_set = datasets.CIFAR10(data_path, train=True, transform=tforms_train, download=download)
+    train_set = datasets.CIFAR10(data_path, train=True, transform=tforms_train, train_tforms="None", download=download)
     # train_set = data_utils.Subset(train_set, range(500))
     # val_test_set = datasets.CIFAR10(data_path, train=False, transform=tforms_test,
     #                                 download=download)

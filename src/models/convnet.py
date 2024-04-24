@@ -8,9 +8,6 @@ class ConvNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        if len(x.shape) != 4:
-            x = jnp.expand_dims(x, 0)
-        x = jnp.transpose(x, (0, 2, 3, 1))
         x = nn.Conv(features=4, kernel_size=(3, 3), strides=(2, 2), padding=1)(x)
         x = nn.tanh(x)
         x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))

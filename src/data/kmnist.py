@@ -3,7 +3,7 @@ import torch
 import torchvision
 from src.data.utils import get_loader, get_subset_data, RotationTransform
 
-class FashionMNIST(torch.utils.data.Dataset):
+class KMNIST(torch.utils.data.Dataset):
     def __init__(
         self,
         train: bool = True,
@@ -16,13 +16,13 @@ class FashionMNIST(torch.utils.data.Dataset):
     ):
         self.transform = transform
         self.path = Path(data_path)
-        self.dataset = torchvision.datasets.FashionMNIST(root=self.path, train=train, download=download)
+        self.dataset = torchvision.datasets.KMNIST(root=self.path, train=train, download=download)
 
         if len(classes)>=10 and n_samples_per_class is None:
             self.data, self.targets = self.dataset.data, self.dataset.targets
         else:
             self.data, self.targets = get_subset_data(self.dataset.data, self.dataset.targets, classes, n_samples_per_class=n_samples_per_class, seed=seed)
-        
+
         self.data = (self.data.float().unsqueeze(-1) / 255.0).numpy()
         self.targets = torch.nn.functional.one_hot(torch.tensor(self.targets), len(classes)).numpy()
 
@@ -39,7 +39,7 @@ class FashionMNIST(torch.utils.data.Dataset):
         return len(self.data)
 
 
-def get_fmnist(
+def get_kmnist(
         batch_size = 128,
         shuffle = False,
         n_samples_per_class: int = None,
@@ -48,7 +48,7 @@ def get_fmnist(
         download: bool = True,
         data_path="/dtu/p1/hroy/data",
     ):
-    dataset = FashionMNIST(
+    dataset = KMNIST(
         train=True,
         n_samples_per_class=n_samples_per_class,
         classes=classes,
@@ -56,7 +56,7 @@ def get_fmnist(
         download=download, 
         data_path=data_path, 
     )
-    dataset_test = FashionMNIST(
+    dataset_test = KMNIST(
         train=False,
         n_samples_per_class=None,
         classes=classes,
@@ -82,8 +82,7 @@ def get_fmnist(
     return train_loader, valid_loader, test_loader
 
 
-
-def get_rotated_fmnist(
+def get_rotated_kmnist(
         angle: float = 0, 
         batch_size = 128,
         shuffle = False,
@@ -94,7 +93,7 @@ def get_rotated_fmnist(
         data_path="/dtu/p1/hroy/data",
     ):
     rotation = torchvision.transforms.Compose([RotationTransform(angle)])
-    dataset = FashionMNIST(
+    dataset = KMNIST(
         train=True,
         transform=rotation,
         n_samples_per_class=n_samples_per_class,
@@ -103,7 +102,7 @@ def get_rotated_fmnist(
         download=download, 
         data_path=data_path, 
     )
-    dataset_test = FashionMNIST(
+    dataset_test = KMNIST(
         train=False,
         transform=rotation,
         n_samples_per_class=None,

@@ -3,8 +3,10 @@ import jax
 import tree_math as tm
 from jax import numpy as jnp
 from functools import partial
+from src.sampling.sample_utils import kernel_check
 from jax import config
 config.update("jax_debug_nans", True)
+import logging
 
 @partial(jax.jit, static_argnames=("model_fn", "output_dim", "n_iterations"))
 def kernel_proj_vp(
@@ -16,8 +18,9 @@ def kernel_proj_vp(
         batched_inv_eigvals: jnp.ndarray,
         output_dim: int,
         n_iterations: int,
+        x_val: jnp.ndarray,
         ):
-    
+        
     def orth_proj_vp(v, x, eigvecs, inv_eigvals):
         lmbd = lambda p: model_fn(p, x)
         _, Jv = jax.jvp(lmbd, (params,), (v,)) 
@@ -28,15 +31,22 @@ def kernel_proj_vp(
         Jt_JJt_inv_Jv = jtv_fn(JJt_inv_Jv)[0]
         return (tm.Vector(v) - tm.Vector(Jt_JJt_inv_Jv)).tree
     def proj_through_data(iter, v):
-        jax.debug.print("Iteration: {iter}", iter=iter)
+        
         def body_fun(carry, batch):
             x, eigvecs, inv_eigvals = batch
             pv = carry
             out = orth_proj_vp(pv, x, eigvecs, inv_eigvals)
             return out, None
         init_carry = v
-        v_, _ = jax.lax.scan(body_fun, init_carry, (x_train_batched, batched_eigvecs, batched_inv_eigvals)) #memory error?
-        return v_
+        Pv_k, _ = jax.lax.scan(body_fun, init_carry, (x_train_batched, batched_eigvecs, batched_inv_eigvals)) #memory error?
+        I_Pv_k = tm.Vector(v) - tm.Vector(Pv_k)
+        t = tm.Vector(v) @ I_Pv_k / (I_Pv_k @ I_Pv_k)
+        Qv = tm.Vector(v) - t * I_Pv_k
+        proj_norm = Qv @ Qv
+        _, jvp = jax.jvp(lambda p: model_fn(p, x_val), (params,), (Qv.tree,))
+        kernel_norm = jnp.linalg.norm(jvp)
+        jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter, proj_norm=proj_norm, kernel_norm=kernel_norm)
+        return Qv.tree
     Pv = jax.lax.fori_loop(0, n_iterations, proj_through_data, vec)
     I_Pv = tm.Vector(vec) - tm.Vector(Pv)
     t = tm.Vector(vec) @ I_Pv / (I_Pv @ I_Pv)

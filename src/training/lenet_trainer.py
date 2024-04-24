@@ -9,29 +9,26 @@ import jax.random as random
 import logging
 from src.helper import compute_num_params
 
-class VIT_Trainer(TrainerModule):
+class LeNet_Trainer(TrainerModule):
 
     def init_model(self, exmp_imgs):
         # Initialize model
         self.rng, init_rng, dropout_init_rng = random.split(self.rng, 3)
-        self.init_params = self.model.init({'params': init_rng, 'dropout': dropout_init_rng},
-                                           exmp_imgs,
-                                           train=True)['params']
+        self.init_params = self.model.init(init_rng,
+                                           exmp_imgs)        
         self.init_batch_stats = None
         self.state = None
         self.num_params = compute_num_params(self.init_params)#compute_num_params(self.init_params[0])
         logging.info(f"Number of trainable parameters network: {self.num_params}")
         jax.debug.print("Number of trainable parameters network: {num_params}", num_params=self.num_params)
+
     def create_functions(self):
             # Function to calculate the classification loss and accuracy for a model
             def calculate_loss(params, batch, train, **kwargs):
                 rng = kwargs.get('rng', self.rng)
                 imgs, labels = batch['image'], batch['label']
-                rng, dropout_apply_rng = random.split(rng)
-                logits = self.model.apply({'params': params},
-                                        imgs,
-                                        train=train,
-                                        rngs={'dropout': dropout_apply_rng})
+                logits = self.model.apply(params,
+                                        imgs)
                 model_state = None
                 loss = softmax_cross_entropy(logits, labels).mean()
                 acc = (logits.argmax(axis=-1) == labels.argmax(axis=-1)).mean()

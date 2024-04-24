@@ -15,4 +15,4 @@ module load python3/3.11.4 cuda/12.3.2 cudnn/v8.9.1.23-prod-cuda-12.X
 source proj/bin/activate
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 
-python src/sampling/sample_proj.py --posthoc_precision 5.0 --run_name vit_1500iters
+python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet

@@ -68,9 +68,9 @@ class TrainerModule:
 
         # Create empty model. Note: no parameters yet
         self.model = self.model_class(**self.model_hparams)
-        now = datetime.datetime.now()
-        now_string = now.strftime("%Y-%m-%d-%H-%M-%S")
-        folder = "".join(x for x in self.args["run_name"] if x.isalnum()) + now_string
+        # now = datetime.datetime.now()
+        # now_string = now.strftime("%Y-%m-%d-%H-%M-%S")
+        folder = "".join(x for x in self.args["run_name"] if x.isalnum()) #+ now_string
         # Prepare logging
         self.log_dir = os.path.join(self.args["CHECKPOINT_PATH"], folder)
         self.logger = wandb_logger
@@ -89,6 +89,7 @@ class TrainerModule:
         self.state = None
         self.num_params = compute_num_params(self.init_params)#compute_num_params(self.init_params[0])
         logging.info(f"Number of trainable parameters network: {self.num_params}")
+        jax.debug.print("Number of trainable parameters network: {num_params}", num_params=self.num_params)
 
     def init_optimizer(self, num_epochs, num_steps_per_epoch):
         self.n_steps_per_epoch = num_steps_per_epoch
@@ -110,6 +111,10 @@ class TrainerModule:
         else:
             logging.info(f'Gradient clipping to have max global norm of: {self.args["clip_delta"]}')
             transf = [optax.clip_by_global_norm(self.args["clip_delta"])]
+
+        if opt_class == optax.sgd and 'weight_decay' in self.optimizer_hparams:  # wd is integrated in adamw
+            transf.append(optax.add_decayed_weights(self.optimizer_hparams.pop('weight_decay')))
+        
         lr = self.optimizer_hparams.pop("lr")
 
         if self.args["lr_scheduler"]:
@@ -140,7 +145,6 @@ class TrainerModule:
             ),  # something here should add a batch stats None to FC and LeNet (dirty dirt)
             tx=optimizer,
         )
-
     def train_model(self, train_loader, val_loader, num_epochs=200, logger=None):
         # Train model for defined number of epochs
         # We first need to create optimizer and the scheduler for the given number of epochs
@@ -155,7 +159,7 @@ class TrainerModule:
             self.train_epoch(train_loader, epoch=epoch_idx)
             if epoch_idx % 2 == 0:
                 eval_acc = self.eval_model(val_loader, epoch_idx)
-
+                print(f"Eval acc: {eval_acc}")
                 logging.info(f"Epoch {epoch_idx} eval acc: {eval_acc}")
 
                 if eval_acc >= best_eval:
@@ -173,13 +177,15 @@ class TrainerModule:
         # Train model for one epoch, and log avg loss and accuracy
         _, random_key = random.split(self.rng)
         N_total = len(train_loader) * self.args["batch_size"]
-
+        acc = defaultdict(list)
         for i, batch in enumerate(tqdm(train_loader, desc="Training", leave=False)):
             self.state, self.rng, loss, metrics_dict = self.train_step(self.state, batch, rng=random_key)
 
             self.logger.log({"train_" + "loss" + "_batch": loss}, step=i + self.n_steps_per_epoch * epoch)
             for dict_key, dict_val in metrics_dict.items():
                 self.logger.log({"train_" + dict_key + "_batch": dict_val}, step=i + self.n_steps_per_epoch * epoch)
+            acc['accuracy'].append(metrics_dict['accuracy'])
+        print("train Accuracy:", np.stack(jax.device_get(acc['accuracy'])).mean())
 
     def eval_model(self, data_loader, epoch=None, eval_type=None):
         # Test model on all images of a data loader and return avg loss

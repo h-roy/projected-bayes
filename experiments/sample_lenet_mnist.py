@@ -41,6 +41,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_seed(args.sample_seed)
 
+    
+
     param_dict = pickle.load(open("./checkpoints/CIFAR-10/ResNet/epoch200_seed0_params.pickle", "rb"))
     params = param_dict['params']
     batch_stats = param_dict['batch_stats']

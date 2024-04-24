@@ -14,9 +14,6 @@ class LeNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        if len(x.shape) != 4:
-            x = jnp.expand_dims(x, 0)
-        x = jnp.transpose(x, (0, 2, 3, 1))
         x = nn.Conv(features=6, kernel_size=(5, 5), strides=(1, 1), padding=((0, 0), (0, 0)))(x)
         x = self.act_fun(x)
         x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2), padding=((0, 0), (0, 0)))
