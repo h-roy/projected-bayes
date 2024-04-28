@@ -109,3 +109,15 @@ logs/21233925.out
 src/sampling/__pycache__/alternating_projections.cpython-39.pyc
 src/sampling/__pycache__/precompute_inv.cpython-39.pyc
 memory.prof
+data/MNIST/raw/train-images-idx3-ubyte.gz
+src/data/__pycache__/ood_datasets.cpython-39.pyc
+src/data/__pycache__/all_datasets.cpython-39.pyc
+src/data/__pycache__/celeba.cpython-39.pyc
+src/data/__pycache__/emnist.cpython-39.pyc
+src/data/__pycache__/kmnist.cpython-39.pyc
+src/data/__pycache__/sinusoidal.cpython-39.pyc
+src/models/__pycache__/resnet_18.cpython-39.pyc
+src/models/__pycache__/resnet_small.cpython-39.pyc
+src/sampling/__pycache__/sample_utils.cpython-39.pyc
+src/training/__pycache__/configs.cpython-39.pyc
+src/training/__pycache__/lenet_trainer.cpython-39.pyc
