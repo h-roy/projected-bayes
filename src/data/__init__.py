@@ -1,5 +1,5 @@
 from src.data.sinusoidal import Sinusoidal, get_sinusoidal
-from src.data.mnist import MNIST, get_mnist, get_rotated_mnist
+from src.data.mnist import MNIST, get_mnist, get_rotated_mnist, get_mnist_ood
 from src.data.emnist import EMNIST, get_emnist, get_rotated_emnist
 from src.data.kmnist import KMNIST, get_kmnist, get_rotated_kmnist
 from src.data.fmnist import FashionMNIST, get_fmnist, get_rotated_fmnist

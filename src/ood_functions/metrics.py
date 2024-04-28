@@ -15,7 +15,7 @@ def compute_metrics(i, id, all_y_prob, test_loader, all_y_prob_in, all_y_var, be
     # compute Brier, ECE and MCE for distribution shift and WILDS benchmarks
     if benchmark in ["R-MNIST", "R-FMNIST", "R-CIFAR", "CIFAR-10-C", "ImageNet-C"] and (benchmark != "WILDS-poverty"):
         if supress==False: print(f"{benchmark} with distribution shift intensity {i}")
-        labels = np.concatenate([data[1].numpy() for data in test_loader])
+        labels = np.concatenate([data['label'] for data in test_loader])
         metrics["brier"] = get_brier_score(all_y_prob, labels)
         metrics["ece"], metrics["mce"] = get_calib(all_y_prob, labels)
 

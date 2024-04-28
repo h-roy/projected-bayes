@@ -18,21 +18,29 @@ def sample_projections(
     model_fn: Callable,
     params,
     eps,
+    alpha: float,
     x_train_batched,
     output_dim: int,
     n_iterations: int,
     x_val: jnp.ndarray,
+    n_params,
 ):
     # eps = tree_random_normal_like(key, params, n_posterior_samples)
     # prior_samples = jax.tree_map(lambda x: 1/jnp.sqrt(alpha) * x, eps)
+
+    # Eps is a Standard Random Normal Pytree
     prior_samples = eps
     batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params, x_train_batched, output_dim, "scan")
     proj_vp_fn = lambda v : kernel_proj_vp(vec=v, model_fn=model_fn, params=params, x_train_batched=x_train_batched, 
                                            batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
                                            output_dim=output_dim, n_iterations=n_iterations, x_val=x_val)
     projected_samples = jax.vmap(proj_vp_fn)(prior_samples)
-    posterior_samples = jax.tree_map(lambda x, y: x + y, projected_samples, params)
-    return posterior_samples
+    trace_proj = (jax.vmap(lambda e, x: tm.Vector(e) @ tm.Vector(x), in_axes=(0,0))(eps, projected_samples)).mean()
+    print("Initial alpha:", alpha)
+    alpha = tm.Vector(params) @ tm.Vector(params) / (n_params - trace_proj)
+    print("Optimal alpha:", alpha) 
+    posterior_samples = jax.tree_map(lambda x, y: 1/jnp.sqrt(alpha) * x + y, projected_samples, params)
+    return posterior_samples 
 
 def sample_projections_dataloader( 
     model_fn: Callable,

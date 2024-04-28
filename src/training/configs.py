@@ -64,9 +64,14 @@ def get_optimizer_hyperparams(model_name):
         optimizer_name = "adamw"
         optimizer_hparams={"lr": 3e-4, 
                             "weight_decay": 0.01}
-    elif model_name in ["ResNet18", "ResNet_small"]:
+    elif model_name == "ResNet_small":
         optimizer_name = "SGD"
         optimizer_hparams={"lr": 0.1,
+                           "momentum": 0.9,
+                           "weight_decay": 1e-4}
+    elif model_name == "ResNet18":
+        optimizer_name = "SGD"
+        optimizer_hparams={"lr": 1e-3,
                            "momentum": 0.9,
                            "weight_decay": 1e-4}
     elif model_name in ["LeNet", "MLP"]:

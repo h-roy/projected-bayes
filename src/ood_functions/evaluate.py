@@ -9,9 +9,10 @@ def evaluate(test_loader, posterior_samples, params, model_fn, eval_args):
     all_y_log_prob = []
     all_y_true = []
     all_y_var = []
-    for x_test, y_test in test_loader:
-        x_test = jnp.array(x_test.numpy())
-        y_test = jnp.array(y_test.numpy())
+    for batch in test_loader:
+        x_test, y_test = batch['image'], batch['label']
+        x_test = jnp.array(x_test)
+        y_test = jnp.array(y_test)
         if len(y_test.shape) == 1:
             y_test = jax.nn.one_hot(y_test, num_classes=10)
 
@@ -25,11 +26,18 @@ def evaluate(test_loader, posterior_samples, params, model_fn, eval_args):
         )
         predictive_samples_mean = jnp.mean(predictive_samples, axis=0)
         # if eval_args["likelihood"] == "regression":
-        predictive_samples_std = jnp.std(predictive_samples, axis=0)
+        # predictive_samples_std = jnp.std(predictive_samples, axis=0)
+        # all_y_var.append(predictive_samples_std**2)
+
+        # y_prob = jax.nn.softmax(predictive_samples_mean, axis=-1)
+        # y_log_prob = jax.nn.log_softmax(predictive_samples_mean, axis=-1)
+
+        y_prob = jnp.mean(jax.nn.softmax(predictive_samples, axis=-1), axis=0)
+        y_log_prob = jnp.mean(jax.nn.log_softmax(predictive_samples, axis=-1), axis=0)
+
+        predictive_samples_std = jnp.std(jax.nn.softmax(predictive_samples, axis=-1), axis=0)
         all_y_var.append(predictive_samples_std**2)
 
-        y_prob = jax.nn.softmax(predictive_samples_mean, axis=-1)
-        y_log_prob = jax.nn.log_softmax(predictive_samples_mean, axis=-1)
 
         # import pdb; pdb.set_trace()
         all_y_prob.append(y_prob)
@@ -67,9 +75,10 @@ def evaluate_map(test_loader, params, model_fn, eval_args):
     all_y_log_prob = []
     all_y_true = []
     all_y_var = []
-    for x_test, y_test in test_loader:
-        x_test = jnp.array(x_test.numpy())
-        y_test = jnp.array(y_test.numpy())
+    for batch in test_loader:
+        x_test, y_test = batch['image'], batch['label']
+        x_test = jnp.array(x_test)
+        y_test = jnp.array(y_test)
         if len(y_test.shape) == 1:
             y_test = jax.nn.one_hot(y_test, num_classes=10)
 
@@ -90,7 +99,6 @@ def evaluate_map(test_loader, params, model_fn, eval_args):
     all_y_prob = jnp.concatenate(all_y_prob, axis=0)
     all_y_log_prob = jnp.concatenate(all_y_log_prob, axis=0)
     all_y_true = jnp.concatenate(all_y_true, axis=0)
-
     # compute some metrics: mean confidence, accuracy and negative log-likelihood
     metrics = {}
     if eval_args["likelihood"] == "classification":

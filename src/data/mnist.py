@@ -1,7 +1,11 @@
 from pathlib import Path
+from typing import Literal
 import torch
 import torchvision
 from src.data.utils import get_loader, get_subset_data, RotationTransform
+from src.data.fmnist import FashionMNIST
+from src.data.kmnist import KMNIST
+from src.data.emnist import EMNIST
 
 class MNIST(torch.utils.data.Dataset):
     def __init__(
@@ -127,3 +131,63 @@ def get_rotated_mnist(
         seed=seed
     )
     return train_loader, valid_loader, test_loader
+
+
+def get_mnist_ood(
+        id: Literal["MNIST", "FMNIST", "EMNIST", "KMNIST"], 
+        batch_size = 128,
+        shuffle = False,
+        n_samples_per_class: int = None,
+        classes: list = list(range(10)),
+        seed = 0,
+        download: bool = True,
+        data_path="/dtu/p1/hroy/data",
+    ):
+    if id == "MNIST":
+        dataset = MNIST(
+            train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path, 
+        )
+    elif id == "FMNIST":
+        dataset = FashionMNIST(
+            train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
+    elif id == "EMNIST":
+        dataset = EMNIST(
+            train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
+    elif id == "KMNIST":
+        dataset = KMNIST(
+            train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
+
+    train_loader, valid_loader = get_loader(
+        dataset,
+        split_train_val_ratio = 0.9,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=True,
+        seed=seed
+    )
+
+
+    return train_loader, valid_loader
