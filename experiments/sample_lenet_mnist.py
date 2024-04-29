@@ -12,7 +12,7 @@ import pickle
 from src.models import LeNet, MLP, ResNet_small, ResNetBlock_small, VisionTransformer
 from src.losses import cross_entropy_loss, accuracy_preds, nll
 from src.helper import calculate_exact_ggn, tree_random_normal_like, compute_num_params
-from src.sampling import sample_predictive, sample_hessian_predictive, sample_projections, sample_projections_dataloader, kernel_check, sample_accuracy
+from src.sampling import sample_projections, vectorize_nn
 from src.helper import set_seed
 import wandb
 from torch.utils import data
@@ -82,8 +82,8 @@ if __name__ == "__main__":
     }
     
     model = LeNet(**hparams)
-    model_fn = model.apply
-
+    params_vec, unflatten, model_fn = vectorize_nn(model.apply, params)
+    
     wandb_project = "large_scale_laplace-part3"
     wandb_logger = wandb.init(project=wandb_project, name=args.run_name, entity="dmiai-mh", config=args)
 
@@ -101,29 +101,23 @@ if __name__ == "__main__":
 
     alpha = args.posthoc_precision
 
-    eps = tree_random_normal_like(sample_key, params, n_samples)
+    eps = jax.random.normal(sample_key, (n_samples, n_params))
 
     #Sample projections
 
     posterior_samples = sample_projections(model_fn,
-                                           params,
+                                           params_vec,
                                            eps,
                                            alpha,
                                            x_train_batched,
                                            output_dim,
                                            n_iterations,
                                            x_val,
-                                           n_params
+                                           n_params,
+                                           unflatten,
     )
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")
-    # pred_posterior = sample_predictive(posterior_samples, params, model_fn, x_train[:N], True, "Pytree")
-    # map_preds = model_fn(params, x_train[:N])
-    # print("Kernel check:", kernel_check(posterior_samples, model_fn, params, x_train[:N]))
-    # print("Distance from Map:", jax.vmap(lambda x,y : jnp.linalg.norm(x - y)/jnp.linalg.norm(y), in_axes=(0,None))(pred_posterior, map_preds))
-    # print("MAP accuracy:", accuracy_preds(map_preds, y_train[:N])/N * 100)
-    # print("Predictive accuracy:", sample_accuracy(pred_posterior, y_train[:N]))
-    # breakpoint()
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }

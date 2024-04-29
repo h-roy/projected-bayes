@@ -24,20 +24,12 @@ def precompute_inv(
         def body_fn(carry, batch):
             x = batch
             lmbd = lambda p: model_fn(p, x)
-            # def kvp(v):
-            #     _, jtv_fn = jax.vjp(lmbd, params)
-            #     Jtv = jtv_fn(v.reshape((x.shape[0], output_dim)))[0]
-            #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-            #     return JJtv 
             kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)
             batch_size = x.shape[0]
-            # v0 = jnp.ones((x.shape[0] * output_dim))
-            # jacfun = lambda v: jax.jvp(kvp, (v0,), (v,))[1]
-            # JJt = jax.lax.map(jacfun, jnp.eye(batch_size * output_dim))
             JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((x.shape[0], output_dim)))
             JJt = JJt.reshape(batch_size * output_dim, batch_size * output_dim)
             eigvals, eigvecs = jnp.linalg.eigh(JJt)
-            idx = eigvals < 1e-7
+            idx = eigvals < 1e-3
             inv_eigvals = jnp.where(idx, 1., eigvals)
             inv_eigvals = 1/inv_eigvals
             inv_eigvals = jnp.where(idx, 0., inv_eigvals)
@@ -49,11 +41,6 @@ def precompute_inv(
     elif type == "map":
         def body_fn(x):
             lmbd = lambda p: model_fn(p, x)
-            # def kvp(v_):
-            #     _, jtv_fn = jax.vjp(lmbd, params)
-            #     Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
-            #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-            #     return JJtv    
             kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)   
             JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
             JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
@@ -68,11 +55,6 @@ def precompute_inv(
     elif type == "vmap":
         def body_fn(x):
             lmbd = lambda p: model_fn(p, x)
-            # def kvp(v_):
-            #     _, jtv_fn = jax.vjp(lmbd, params)
-            #     Jtv = jtv_fn(v_.reshape((x.shape[0], output_dim)))[0]
-            #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-            #     return JJtv
             kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)  
             JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
             JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
@@ -93,11 +75,6 @@ def precompute_inv_batch(
         output_dim: int,
 ):
         lmbd = lambda p: model_fn(p, x_batch)
-        # def kvp(v):
-        #     _, jtv_fn = jax.vjp(lmbd, params)
-        #     Jtv = jtv_fn(v.reshape((x.shape[0], output_dim)))[0]
-        #     _, JJtv = jax.jvp(lmbd, (params,), (Jtv,))
-        #     return JJtv 
         batch_size = x_batch.shape[0]
         kvp = lambda w: kernel_vp(lmbd, w, batch_size, output_dims=output_dim, params=params)
         JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((batch_size, output_dim)))
