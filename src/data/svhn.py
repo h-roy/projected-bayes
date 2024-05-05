@@ -41,6 +41,7 @@ def get_svhn(
         seed = 0,
         download: bool = True,
         data_path="/dtu/p1/hroy/data",
+        n_samples_per_class: int = None,
     ):
         n_classes = 10
         train_dataset = SVHN(root=data_path, split='train', download=download)
@@ -68,15 +69,20 @@ def get_svhn(
         set_seed(seed)
         _, val_set = torch.utils.data.random_split(val_dataset, [70000, 3257])
         test_set = SVHN(root=data_path, split='test', transform=test_transform, download=download)
-        # breakpoint()
+        if n_samples_per_class is not None:
+            set_seed(seed)
+            n_data = n_samples_per_class * 10
+            train_set, _ = torch.utils.data.random_split(train_dataset, [n_data, len(train_dataset)-n_data])
+            val_set, _  = torch.utils.data.random_split(val_dataset, [n_data, len(val_dataset)-n_data])
+            test_set, _  = torch.utils.data.random_split(test_set, [n_data, len(test_set)-n_data])
+
         # train_set.dataset.labels = torch.nn.functional.one_hot(torch.tensor(train_set.dataset.labels), n_classes).numpy()
         # val_set.dataset.labels = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.labels), n_classes).numpy()
-        # breakpoint()
         # test_set.labels = torch.nn.functional.one_hot(torch.tensor(test_set.labels), n_classes).numpy()
         if purp == "train":
             train_loader = data.DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
         elif purp == "sample":
-            train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=False, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
+            train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
         val_loader = data.DataLoader(val_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
         test_loader = data.DataLoader(test_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
         if return_dataset:

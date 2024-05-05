@@ -3,6 +3,7 @@ import argparse
 import jax
 import matplotlib.pyplot as plt
 import datetime
+import torch
 import tree_math as tm
 from flax import linen as nn
 from jax import nn as jnn
@@ -10,6 +11,8 @@ from jax import numpy as jnp
 import json
 from jax import random, jit
 import pickle
+import torchvision
+from src.data.utils import image_to_numpy, numpy_collate_fn
 from src.models import LeNet, MLP, ResNet_small, ResNetBlock_small, VisionTransformer
 from src.losses import cross_entropy_loss, accuracy_preds, nll
 from src.helper import calculate_exact_ggn, tree_random_normal_like, compute_num_params
@@ -19,7 +22,8 @@ import wandb
 from torch.utils import data
 
 import matplotlib.pyplot as plt
-from src.data import MNIST, FashionMNIST, CIFAR10, CIFAR100, SVHN, numpy_collate_fn
+from src.data import MNIST, FashionMNIST
+from src.sampling.sample_utils import vectorize_nn
 from src.ood_functions.evaluate import evaluate
 from src.ood_functions.metrics import compute_metrics
 # from jax import config
@@ -48,7 +52,14 @@ if __name__ == "__main__":
      ###############
     ### dataset ###
     n_samples_per_class = None 
-    dataset = CIFAR10(seed=args.sample_seed, n_samples_per_class=100)
+    train_dataset = torchvision.datasets.CIFAR10(root='/dtu/p1/hroy/data', train=True, download=True)
+    means = (train_dataset.data / 255.0).mean(axis=(0,1,2))
+    std = (train_dataset.data / 255.0).std(axis=(0,1,2))
+    normalize = image_to_numpy(means, std)
+    train_transform = normalize
+    n_classes = 10
+    target_transform = lambda x: torch.nn.functional.one_hot(torch.tensor(x), n_classes).numpy()
+    dataset = torchvision.datasets.CIFAR10(root='/dtu/p1/hroy/data', train=True, transform=train_transform, target_transform=target_transform, download=True)
     dataset_size = len(dataset)
     wandb_project = "large_scale_laplace-part3"
     wandb_logger = wandb.init(project=wandb_project, name=args.run_name, entity="dmiai-mh", config=args)
@@ -91,8 +102,8 @@ if __name__ == "__main__":
     N = 1000
     # bs = 30
     bs = 30
-    x_train = x_train[:N]
-    y_train = y_train[:N]
+    x_train = x_train#[:N]
+    y_train = y_train#[:N]
     labels = jnp.where(y_train==1.)[1]
     idx = jnp.argsort(labels)
     x_train = x_train[idx,:]
@@ -111,25 +122,28 @@ if __name__ == "__main__":
     alpha = args.posthoc_precision
     eps = tree_random_normal_like(sample_key, params, n_samples)
     prior_samples = jax.tree_map(lambda x: 1/jnp.sqrt(alpha) * x, eps)
-
+    params_vec, unflatten, model_fn_vec = vectorize_nn(model_fn, params)
     #Sample projections
-    # posterior_samples = sample_projections(model_fn,
-    #                                        params,
-    #                                        eps,
-    #                                        x_train_batched,
-    #                                        output_dim,
-    #                                        n_iterations,
-    #                                        x_val,
-    # )
-    dataloader_hparams = {
-        "dataset":dataset,
-        "batch_size":bs,
-        # "shuffle":False,
-        "drop_last":True,
-        "collate_fn":numpy_collate_fn,
-        "sampler":data.sampler.SequentialSampler(dataset)
-    }
-    train_loader = data.DataLoader(**dataloader_hparams)
+    posterior_samples = sample_projections(model_fn_vec,
+                                           params_vec,
+                                           eps,
+                                           alpha,
+                                           x_train_batched,
+                                           output_dim,
+                                           n_iterations,
+                                           x_val,
+                                           n_params,
+                                           unflatten
+    )
+    # dataloader_hparams = {
+    #     "dataset":dataset,
+    #     "batch_size":bs,
+    #     # "shuffle":False,
+    #     "drop_last":True,
+    #     "collate_fn":numpy_collate_fn,
+    #     "sampler":data.sampler.SequentialSampler(dataset)
+    # }
+    # train_loader = data.DataLoader(**dataloader_hparams)
 
     # train_loader = data.DataLoader(
     #     dataset,
@@ -139,15 +153,15 @@ if __name__ == "__main__":
     #     collate_fn=numpy_collate_fn,
     #     sampler = data.sampler.SequentialSampler(dataset)
     # )
-    posterior_samples = sample_projections_dataloader(
-                                        model_fn,
-                                        params,
-                                        eps,
-                                        train_loader,
-                                        args.sample_seed,
-                                        output_dim,
-                                        n_iterations,
-                                        x_val)
+    # posterior_samples = sample_projections_dataloader(
+    #                                     model_fn,
+    #                                     params,
+    #                                     eps,
+    #                                     train_loader,
+    #                                     args.sample_seed,
+    #                                     output_dim,
+    #                                     n_iterations,
+    #                                     x_val)
 
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")
@@ -157,7 +171,6 @@ if __name__ == "__main__":
     print("Distance from Map:", jax.vmap(lambda x,y : jnp.linalg.norm(x - y)/jnp.linalg.norm(y), in_axes=(0,None))(pred_posterior, map_preds))
     print("MAP accuracy:", accuracy_preds(map_preds, y_train[:N])/N * 100)
     print("Predictive accuracy:", sample_accuracy(pred_posterior, y_train[:N]))
-    # breakpoint()
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }

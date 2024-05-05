@@ -1,4 +1,5 @@
 from src.models.mlp import MLP
+from src.models.convnet import ConvNet
 from src.models.lenet import LeNet
 from src.models.resnet_small import ResNet_small, ResNetBlock_small, PreActResNetBlock_small
 from src.models.densenet import DenseNet, DenseBlock, DenseLayer, TransitionLayer

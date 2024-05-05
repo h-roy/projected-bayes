@@ -20,7 +20,7 @@ def sample_projections(
     eps,
     alpha: float,
     x_train_batched,
-    output_dim: int,
+    output_dims: int,
     n_iterations: int,
     x_val: jnp.ndarray,
     n_params,
@@ -32,18 +32,19 @@ def sample_projections(
 
     # Eps is a Standard Random Normal Pytree
     prior_samples = eps
-    batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params_vec, x_train_batched, output_dim, "scan")
+    batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params_vec, x_train_batched, output_dims, "scan")
     proj_vp_fn = lambda v : kernel_proj_vp(vec=v, model_fn=model_fn, params=params_vec, x_train_batched=x_train_batched, 
                                            batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
-                                           output_dim=output_dim, n_iterations=n_iterations, x_val=x_val)
+                                           output_dims=output_dims, n_iterations=n_iterations, x_val=x_val)
     projected_samples = jax.vmap(proj_vp_fn)(prior_samples)
+    trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     if use_optimal_alpha:
-        trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
         print("Initial alpha:", alpha)
         alpha = jnp.dot(params_vec, params_vec) / (n_params - trace_proj)
         print("Optimal alpha:", alpha) 
     posterior_samples = jax.vmap(lambda single_sample: unflatten_fn(params_vec + 1/jnp.sqrt(alpha) * single_sample))(projected_samples)
-    return posterior_samples 
+    metrics = {"kernel_dim": trace_proj, "alpha": alpha}
+    return posterior_samples, metrics
 
 def sample_projections_dataloader( 
     model_fn: Callable,
@@ -52,7 +53,7 @@ def sample_projections_dataloader(
     alpha: float,
     train_loader,
     seed,
-    output_dim: int,
+    output_dims: int,
     n_iterations: int,
     x_val: jnp.ndarray,
     n_params,
@@ -66,8 +67,7 @@ def sample_projections_dataloader(
     batched_inv_eigvals = []
     for i, batch in enumerate(tqdm(train_loader, desc="Training", leave=False)):
         x_batch = batch['image']
-        eigvecs, inv_eigvals = precompute_inv_batch(model_fn, params_vec, x_batch, output_dim)
-
+        eigvecs, inv_eigvals = precompute_inv_batch(model_fn, params_vec, x_batch, output_dims)
         batched_eigvecs.append(eigvecs)
         batched_inv_eigvals.append(inv_eigvals)
     batched_eigvecs = jnp.stack(batched_eigvecs)
@@ -78,15 +78,17 @@ def sample_projections_dataloader(
             x_batch = batch['image']
             # eigvecs, inv_eigvals = precompute_inv_batch(model_fn, params, x_batch, output_dim)
             eigvecs, inv_eigvals = batched_eigvecs[j], batched_inv_eigvals[j]
-            proj_vp_fn = lambda v : kernel_proj_vp_batch(vec=v, model_fn=model_fn, params=params_vec, x_batch=x_batch, eigvecs=eigvecs, inv_eigvals=inv_eigvals, output_dim=output_dim)
+            proj_vp_fn = lambda v : kernel_proj_vp_batch(vec=v, model_fn=model_fn, params=params_vec, x_batch=x_batch, eigvecs=eigvecs, inv_eigvals=inv_eigvals, output_dims=output_dims)
             projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
-        proj_norm = jnp.dot(projected_samples, projected_samples)
-        kernel_norm = jnp.mean(jnp.array(kernel_check(projected_samples + params_vec, model_fn, params_vec, x_val)))
-        jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter_num, proj_norm=proj_norm, kernel_norm=kernel_norm)
+            proj_norm = jnp.mean(jnp.asarray(jax.vmap(lambda p: jnp.dot(p, p))(projected_samples)))
+            kernel_norm = jnp.mean(jnp.array(kernel_check(projected_samples + params_vec, model_fn, params_vec, x_val)))
+            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter_num, proj_norm=proj_norm, kernel_norm=kernel_norm)
+
+    trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     if use_optimal_alpha:
-        trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
         print("Initial alpha:", alpha)
         alpha = jnp.dot(params_vec, params_vec) / (n_params - trace_proj)
         print("Optimal alpha:", alpha) 
     posterior_samples = jax.vmap(lambda single_sample: unflatten_fn(params_vec + 1/jnp.sqrt(alpha) * single_sample))(projected_samples)
-    return posterior_samples
+    metrics = {"kernel_dim": trace_proj, "alpha": alpha}
+    return posterior_samples, metrics

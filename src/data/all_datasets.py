@@ -122,7 +122,8 @@ def get_dataloaders(
             transform= transform,
             seed = seed,
             download = download, 
-            data_path = data_path
+            data_path = data_path,
+            n_samples_per_class= int(n_samples/10) if n_samples is not None else None
         )
     elif dataset_name == "CIFAR-10-C":
         classes = list(range(10))
@@ -144,7 +145,8 @@ def get_dataloaders(
             transform= transform,
             seed = seed,
             download = download, 
-            data_path = data_path
+            data_path = data_path,
+            n_samples_per_class= int(n_samples/10) if n_samples is not None else None
         )
     elif dataset_name == "SVHN":
         classes = list(range(10))
@@ -154,8 +156,45 @@ def get_dataloaders(
             transform= transform,
             seed = seed,
             download = download, 
+            data_path = data_path,
+            n_samples_per_class= int(n_samples/10) if n_samples is not None else None
+        )
+    elif dataset_name == "CIFAR-10-OOD":
+        ood_test = {}
+        classes = list(range(10))
+
+        _, cifar10_valid_loader, cifar10_test_loader = get_cifar10(
+            batch_size = batch_size, 
+            purp = purp,
+            transform= transform,
+            seed = seed,
+            download = download, 
             data_path = data_path
         )
+        ood_test["CIFAR-10-val"] = cifar10_valid_loader
+        ood_test["CIFAR-10-test"] = cifar10_test_loader
+        _, svhn_valid_loader, svhn_test_loader = get_svhn(
+            batch_size = batch_size, 
+            purp = purp,
+            transform= transform,
+            seed = seed,
+            download = download, 
+            data_path = data_path
+        )
+        ood_test["SVHN-val"] = svhn_valid_loader
+        ood_test["SVHN-test"] = svhn_test_loader
+        _, cifar_100_valid_loader, cifar100_test_loader = get_cifar100(
+            batch_size = batch_size, 
+            purp = purp,
+            transform= transform,
+            seed = seed,
+            download = download, 
+            data_path = data_path
+        )
+        ood_test["CIFAR-100-val"] = cifar_100_valid_loader
+        ood_test["CIFAR-100-test"] = cifar100_test_loader
+        return ood_test
+
     else:
         raise ValueError(f"Dataset {dataset_name} is not implemented")
     

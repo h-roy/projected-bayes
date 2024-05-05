@@ -124,7 +124,7 @@ def get_gvp_fun(params,
     def gvp(eps):
         def scan_fun(carry, batch):
             x_ = batch
-            if batch_size>0:
+            if batch.shape[0]>1:
                 model_on_data = lambda p: model_fn(p,x_)
             else:
                 model_on_data = lambda p: model_fn(p,x_[None,:])

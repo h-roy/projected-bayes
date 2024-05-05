@@ -26,8 +26,8 @@ from src.data import MNIST, FashionMNIST, numpy_collate_fn
 # basically orthogonal to the plane and project down to the MAP param
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/MNIST/LeNet_MNIST_0_params", help="path of model")
-parser.add_argument("--run_name", default="Projection_Sampling_MNIST", help="Fix the save file name.")
+parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/FMNIST/LeNet_FMNIST_0_params", help="path of model")
+parser.add_argument("--run_name", default="Projection_Sampling_FMNIST", help="Fix the save file name.")
 parser.add_argument("--num_samples", type=int, default=5)
 parser.add_argument("--num_iterations", type=int, default=200)
 parser.add_argument("--sample_seed",  type=int, default=0)
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     n_samples_per_class = None 
     classes = list(range(10))
     seed = args.sample_seed
-    dataset = MNIST(
+    dataset = FashionMNIST(
         train=True,
         n_samples_per_class=n_samples_per_class,
         classes=classes,
@@ -121,13 +121,13 @@ if __name__ == "__main__":
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }
-    os.makedirs("./checkpoints/posterior_MNIST/", exist_ok=True)
+    os.makedirs("./checkpoints/posterior_samples/FMNIST", exist_ok=True)
     if args.run_name is not None:
         save_name = f"{args.run_name}_seed{args.sample_seed}"
     else:
         save_name = f"started_{now_string}"
 
 
-    save_path = f"./checkpoints/posterior_MNIST/{save_name}"
+    save_path = f"./checkpoints/posterior_samples/FMNIST/{save_name}"
     pickle.dump(posterior_dict, open(f"{save_path}_params.pickle", "wb"))
     pickle.dump(metrics, open(f"{save_path}_metrics.pickle", "wb"))

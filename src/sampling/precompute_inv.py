@@ -12,22 +12,22 @@ def kernel_vp(fn, v, batch_size, output_dims, params):
     _, JJtv = jax.jvp(fn, (params,), (Jtv,))
     return JJtv
 
-@partial(jax.jit, static_argnames=( "output_dim", "type", "model_fn"))
+@partial(jax.jit, static_argnames=( "output_dims", "type", "model_fn"))
 def precompute_inv(
         model_fn: Callable,
         params,
         x_train_batched,
-        output_dim: int,
+        output_dims: int,
         type: Literal["scan", "map", "vmap"] = "scan"
 ):
     if type == "scan":
         def body_fn(carry, batch):
             x = batch
             lmbd = lambda p: model_fn(p, x)
-            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)
+            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dims, params=params)
             batch_size = x.shape[0]
-            JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((x.shape[0], output_dim)))
-            JJt = JJt.reshape(batch_size * output_dim, batch_size * output_dim)
+            JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((x.shape[0], output_dims)))
+            JJt = JJt.reshape(batch_size * output_dims, batch_size * output_dims)
             eigvals, eigvecs = jnp.linalg.eigh(JJt)
             idx = eigvals < 1e-3
             inv_eigvals = jnp.where(idx, 1., eigvals)
@@ -41,9 +41,9 @@ def precompute_inv(
     elif type == "map":
         def body_fn(x):
             lmbd = lambda p: model_fn(p, x)
-            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)   
-            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
-            JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
+            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dims, params=params)   
+            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dims)))
+            JJt = JJt.reshape(x.shape[0] * output_dims, x.shape[0] * output_dims)
             eigvals, eigvecs = jnp.linalg.eigh(JJt)
             idx = eigvals < 1e-7
             inv_eigvals = jnp.where(idx, 1., eigvals)
@@ -55,9 +55,9 @@ def precompute_inv(
     elif type == "vmap":
         def body_fn(x):
             lmbd = lambda p: model_fn(p, x)
-            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dim, params=params)  
-            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dim)))
-            JJt = JJt.reshape(x.shape[0] * output_dim, x.shape[0] * output_dim)
+            kvp = lambda w: kernel_vp(lmbd, w, x.shape[0], output_dims=output_dims, params=params)  
+            JJt = jax.jacfwd(kvp)(jnp.ones((x.shape[0], output_dims)))
+            JJt = JJt.reshape(x.shape[0] * output_dims, x.shape[0] * output_dims)
             eigvals, eigvecs = jnp.linalg.eigh(JJt)
             idx = eigvals < 1e-7
             inv_eigvals = jnp.where(idx, 1., eigvals)
@@ -67,18 +67,21 @@ def precompute_inv(
         eigvecs, inv_eigvals = jax.vmap(body_fn)(x_train_batched)
         return eigvecs, inv_eigvals
 
-@partial(jax.jit, static_argnames=( "output_dim", "model_fn"))
+@partial(jax.jit, static_argnames=( "output_dims", "model_fn"))
 def precompute_inv_batch(
         model_fn: Callable,
         params,
         x_batch,
-        output_dim: int,
+        output_dims: int,
 ):
         lmbd = lambda p: model_fn(p, x_batch)
         batch_size = x_batch.shape[0]
-        kvp = lambda w: kernel_vp(lmbd, w, batch_size, output_dims=output_dim, params=params)
-        JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((batch_size, output_dim)))
-        JJt = JJt.reshape(batch_size * output_dim, batch_size * output_dim)
+        J = jax.jacrev(lmbd)(params)
+        J = J.reshape(batch_size * output_dims, -1)
+        JJt = J @ J.T
+        # kvp = lambda w: kernel_vp(lmbd, w, batch_size, output_dims=output_dims, params=params)
+        # JJt = jax.jacfwd(kvp, argnums=0)(jnp.ones((batch_size, output_dims)))
+        # JJt = JJt.reshape(batch_size * output_dims, batch_size * output_dims)
         eigvals, eigvecs = jnp.linalg.eigh(JJt)
         idx = eigvals < 1e-7
         inv_eigvals = jnp.where(idx, 1., eigvals)

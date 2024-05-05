@@ -83,3 +83,22 @@ def get_optimizer_hyperparams(model_name):
 
     return optimizer_name, optimizer_hparams
 
+def get_model_apply_fn(model_name, model_apply, batch_stats=None, rng=None):
+    if model_name in ["ResNet_small", "ResNet18", "DenseNet", "GoogleNet"]:
+        assert batch_stats is not None, "Batch statistics must be provided for ResNet and DenseNet models."
+        model_fn = lambda params, imgs: model_apply({'params': params, 'batch_stats': batch_stats}, 
+                                    imgs,
+                                    train=False,
+                                    mutable=False)
+    elif model_name in ["LeNet", "MLP"]:
+        model_fn = model_apply
+    elif model_name == "VisionTransformer":
+        assert rng is not None, "RNG key must be provided for Vision Transformer model."
+        model_fn = lambda params, imgs: model_apply({'params': params},
+                                                                imgs,
+                                                                train=False,
+                                                                rngs={'dropout': rng})
+    else:
+        raise ValueError(f"Configs for Model {model_name} not implemented yet.")
+    
+    return model_fn

@@ -152,9 +152,25 @@ def get_mnist_ood(
             download=download, 
             data_path=data_path, 
         )
+        test_set = MNIST(
+            train=False,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
     elif id == "FMNIST":
         dataset = FashionMNIST(
             train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
+        test_set = FashionMNIST(
+            train=False,
             n_samples_per_class=n_samples_per_class,
             classes=classes,
             seed=seed,
@@ -170,9 +186,25 @@ def get_mnist_ood(
             download=download, 
             data_path=data_path,    
         )
+        test_set = EMNIST(
+            train=False,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
     elif id == "KMNIST":
         dataset = KMNIST(
             train=True,
+            n_samples_per_class=n_samples_per_class,
+            classes=classes,
+            seed=seed,
+            download=download, 
+            data_path=data_path,    
+        )
+        test_set = KMNIST(
+            train=False,
             n_samples_per_class=n_samples_per_class,
             classes=classes,
             seed=seed,
@@ -188,6 +220,13 @@ def get_mnist_ood(
         drop_last=True,
         seed=seed
     )
+    test_loader = get_loader(
+        test_set,
+        split_train_val_ratio = 1.0,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=True,
+        seed=seed
+    )
 
-
-    return train_loader, valid_loader
+    return train_loader, valid_loader, test_loader

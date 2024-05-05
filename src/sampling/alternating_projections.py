@@ -7,7 +7,7 @@ from jax import config
 config.update("jax_debug_nans", True)
 import logging
 
-@partial(jax.jit, static_argnames=("model_fn", "output_dim", "n_iterations"))
+@partial(jax.jit, static_argnames=("model_fn", "output_dims", "n_iterations"))
 def kernel_proj_vp(
         vec,
         model_fn: Callable,
@@ -15,7 +15,7 @@ def kernel_proj_vp(
         x_train_batched: jnp.ndarray,
         batched_eigvecs: jnp.ndarray, 
         batched_inv_eigvals: jnp.ndarray,
-        output_dim: int,
+        output_dims: int,
         n_iterations: int,
         x_val: jnp.ndarray,
         ):
@@ -26,7 +26,7 @@ def kernel_proj_vp(
         JJt_inv_Jv = eigvecs.T @ Jv.reshape(-1)
         JJt_inv_Jv = eigvecs @ (inv_eigvals * JJt_inv_Jv)
         _, jtv_fn = jax.vjp(lmbd, params)
-        JJt_inv_Jv = JJt_inv_Jv.reshape((x.shape[0],output_dim))
+        JJt_inv_Jv = JJt_inv_Jv.reshape((x.shape[0],output_dims))
         Jt_JJt_inv_Jv = jtv_fn(JJt_inv_Jv)[0]
         return v - Jt_JJt_inv_Jv
     def proj_through_data(iter, v):
@@ -46,7 +46,7 @@ def kernel_proj_vp(
     Pv = jax.lax.fori_loop(0, n_iterations, proj_through_data, vec)
     return Pv
 
-@partial(jax.jit, static_argnames=("output_dim", "model_fn"))
+@partial(jax.jit, static_argnames=("output_dims", "model_fn"))
 def kernel_proj_vp_batch(
         vec,
         model_fn: Callable,
@@ -54,7 +54,7 @@ def kernel_proj_vp_batch(
         x_batch: jnp.ndarray,
         eigvecs: jnp.ndarray, 
         inv_eigvals: jnp.ndarray,
-        output_dim: int,
+        output_dims: int,
         ):
     
     lmbd = lambda p: model_fn(p, x_batch)
@@ -62,7 +62,7 @@ def kernel_proj_vp_batch(
     JJt_inv_Jv = eigvecs.T @ Jv.reshape(-1)
     JJt_inv_Jv = eigvecs @ (inv_eigvals * JJt_inv_Jv)
     _, jtv_fn = jax.vjp(lmbd, params)
-    JJt_inv_Jv = JJt_inv_Jv.reshape((x_batch.shape[0],output_dim))
+    JJt_inv_Jv = JJt_inv_Jv.reshape((x_batch.shape[0],output_dims))
     Jt_JJt_inv_Jv = jtv_fn(JJt_inv_Jv)[0]
     return vec - Jt_JJt_inv_Jv
     

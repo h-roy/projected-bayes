@@ -20,6 +20,7 @@ def get_cifar10(
         seed = 0,
         download: bool = True,
         data_path="/dtu/p1/hroy/data",
+        n_samples_per_class: int = None,
     ):
     n_classes = 10
     train_dataset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=download)
@@ -46,13 +47,22 @@ def get_cifar10(
     set_seed(seed)
     _, val_set = torch.utils.data.random_split(val_dataset, [45000, 5000])
     test_set = torchvision.datasets.CIFAR10(root=data_path, train=False, transform=test_transform, download=download)
+    if n_samples_per_class is not None:
+        set_seed(seed)
+        n_data = n_samples_per_class * 10
+        train_set, _ = torch.utils.data.random_split(train_dataset, [n_data, len(train_dataset)-n_data])
+        val_set, _  = torch.utils.data.random_split(val_dataset, [n_data, len(val_dataset)-n_data])
+        test_set, _  = torch.utils.data.random_split(test_set, [n_data, len(test_set)-n_data])
+        test_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(test_set.dataset.targets), n_classes).numpy()
+        
+
     train_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(train_set.dataset.targets), n_classes).numpy()
     val_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.targets), n_classes).numpy()
     test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
     if purp == "train":
         train_loader = data.DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
     elif purp == "sample":
-        train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=False, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
+        train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
     val_loader = data.DataLoader(val_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
     test_loader = data.DataLoader(test_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
     if return_dataset:

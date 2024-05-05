@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Literal
 import jax
 import tree_math as tm
@@ -5,6 +6,7 @@ from jax import hessian, numpy as jnp
 from src.helper import tree_random_normal_like, get_gvp_fun
 from jax import config
 
+@partial(jax.jit, static_argnames=("model_fn", "likelihood", "computation_type", "n_samples", ))
 def hutchinson_diagonal(model_fn,
                         params,
                         gvp_batch_size,
@@ -18,6 +20,7 @@ def hutchinson_diagonal(model_fn,
     """"
     This function computes the diagonal of the GGN matrix using Hutchinson's method.
     """
+    
     gvp_fn = get_gvp_fun(params, model_fn, x_train, gvp_batch_size, likelihood, "running", "tree")
     diag_init = jax.tree_map(lambda x: jnp.zeros_like(x), params)
     if computation_type == "serial":

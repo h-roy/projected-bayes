@@ -16,7 +16,7 @@ class EMNIST(torch.utils.data.Dataset):
     ):
         self.transform = transform
         self.path = Path(data_path)
-        self.dataset = torchvision.datasets.EMNIST(root=self.path, split='digits' if train else 'digits', download=download)
+        self.dataset = torchvision.datasets.EMNIST(root=self.path, split='letters', download=download)
 
         if len(classes)>=10 and n_samples_per_class is None:
             self.data, self.targets = self.dataset.data, self.dataset.targets

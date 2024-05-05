@@ -121,3 +121,7 @@ src/models/__pycache__/resnet_small.cpython-39.pyc
 src/sampling/__pycache__/sample_utils.cpython-39.pyc
 src/training/__pycache__/configs.cpython-39.pyc
 src/training/__pycache__/lenet_trainer.cpython-39.pyc
+data/EMNIST/raw/gzip.zip
+src/laplace/last_layer/__pycache__/extract_last_layer.cpython-39.pyc
+src/sampling/__pycache__/last_layer_sampling.cpython-39.pyc
+src/sampling/__pycache__/diagonal_lapalce_sampling.cpython-39.pyc
