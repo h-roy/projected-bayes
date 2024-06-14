@@ -9,6 +9,8 @@ from flax import linen as nn
 from jax import nn as jnn
 from jax import numpy as jnp
 import pickle
+from src.data.emnist import get_emnist
+from src.data.mnist import get_mnist
 from src.models import MODELS_DICT, ResNetBlock_small, ResNet_small
 from src.training import get_model_hyperparams, get_model_apply_fn
 
@@ -17,6 +19,14 @@ from src.helper import calculate_exact_ggn, load_obj, tree_random_normal_like, c
 from src.sampling import sample_projections_dataloader, vectorize_nn
 from src.helper import set_seed
 from src.data import get_cifar10, get_dataloaders, get_output_dim
+import os
+os.environ['XLA_FLAGS'] = (
+    '--xla_gpu_enable_triton_softmax_fusion=true '
+    '--xla_gpu_triton_gemm_any=True '
+    '--xla_gpu_enable_async_collectives=true '
+    '--xla_gpu_enable_latency_hiding_scheduler=true '
+    '--xla_gpu_enable_highest_priority_async_stream=true '
+)
 
 import wandb
 from torch.utils import data
@@ -41,6 +51,7 @@ parser.add_argument("--run_name", default="Projection_Sampling_CIFAR10", help="F
 parser.add_argument("--num_samples", type=int, default=5)
 parser.add_argument("--num_iterations", type=int, default=200)
 parser.add_argument("--sample_seed",  type=int, default=0)
+parser.add_argument("--macro_batch_size",  type=int, default=55000)
 parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
 
@@ -59,10 +70,10 @@ if __name__ == "__main__":
     dataset = args.dataset
     output_dim = get_output_dim(dataset)
     seed = args.sample_seed
-
     train_loader, val_loader, test_loader = get_dataloaders(
             dataset_name=dataset,
-            batch_size=args.sample_batch_size,
+            train_batch_size=args.macro_batch_size,
+            val_batch_size=args.sample_batch_size,
             data_path='/dtu/p1/hroy/data',
             seed=seed,
             purp='sample'

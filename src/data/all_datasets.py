@@ -12,7 +12,8 @@ from src.data.svhn import get_svhn
 def get_dataloaders(
         dataset_name,
         n_samples = None,
-        batch_size: int = 128,
+        train_batch_size: int = 128,
+        val_batch_size: int = 128,
         shuffle = True,
         seed: int = 0,
         download: bool = True,
@@ -39,7 +40,7 @@ def get_dataloaders(
         
     if dataset_name == "Sinusoidal":
         train_loader, valid_loader, test_loader = get_sinusoidal(
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             n_samples = n_samples,
             seed = seed,
@@ -49,8 +50,9 @@ def get_dataloaders(
     elif dataset_name == "MNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_mnist(
-            batch_size = batch_size, 
-            shuffle = shuffle,
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size, 
+            purp = purp,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
             seed = seed,
@@ -61,7 +63,7 @@ def get_dataloaders(
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_rotated_mnist(
             angle = angle,
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
@@ -72,7 +74,8 @@ def get_dataloaders(
     elif dataset_name == "FMNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_fmnist(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size,
             shuffle = shuffle,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
@@ -84,7 +87,7 @@ def get_dataloaders(
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_rotated_fmnist(
             angle = angle,
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
@@ -95,7 +98,7 @@ def get_dataloaders(
     elif dataset_name == "EMNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_emnist(
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
@@ -106,7 +109,7 @@ def get_dataloaders(
     elif dataset_name == "KMNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_kmnist(
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             n_samples_per_class = int(n_samples/10) if n_samples is not None else None,
             classes = classes,
@@ -117,7 +120,8 @@ def get_dataloaders(
     elif dataset_name == "CIFAR-10":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_cifar10(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size, 
             purp = purp,
             transform= transform,
             seed = seed,
@@ -131,7 +135,7 @@ def get_dataloaders(
         train_loader, valid_loader, test_loader = get_cifar10_corrupted(
             corr_type = corr_type,
             severity_level = severity_level,
-            batch_size = batch_size, 
+            batch_size = val_batch_size, 
             shuffle = shuffle,
             seed = seed,
             download = download, 
@@ -140,7 +144,8 @@ def get_dataloaders(
     elif dataset_name == "CIFAR-100":
         classes = list(range(100))
         train_loader, valid_loader, test_loader = get_cifar100(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size,
             purp = purp,
             transform= transform,
             seed = seed,
@@ -151,7 +156,8 @@ def get_dataloaders(
     elif dataset_name == "SVHN":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_svhn(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size,
             purp = purp,
             transform= transform,
             seed = seed,
@@ -164,7 +170,8 @@ def get_dataloaders(
         classes = list(range(10))
 
         _, cifar10_valid_loader, cifar10_test_loader = get_cifar10(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size, 
             purp = purp,
             transform= transform,
             seed = seed,
@@ -174,7 +181,8 @@ def get_dataloaders(
         ood_test["CIFAR-10-val"] = cifar10_valid_loader
         ood_test["CIFAR-10-test"] = cifar10_test_loader
         _, svhn_valid_loader, svhn_test_loader = get_svhn(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size, 
             purp = purp,
             transform= transform,
             seed = seed,
@@ -184,7 +192,8 @@ def get_dataloaders(
         ood_test["SVHN-val"] = svhn_valid_loader
         ood_test["SVHN-test"] = svhn_test_loader
         _, cifar_100_valid_loader, cifar100_test_loader = get_cifar100(
-            batch_size = batch_size, 
+            train_batch_size = train_batch_size,
+            val_batch_size = val_batch_size, 
             purp = purp,
             transform= transform,
             seed = seed,

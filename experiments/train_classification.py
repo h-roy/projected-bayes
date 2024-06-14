@@ -116,7 +116,8 @@ def main(args: dict):
 
     train_loader, val_loader, test_loader = get_dataloaders(
         dataset_name=args["dataset"],
-        batch_size=args["batch_size"],
+        train_batch_size=args["batch_size"],
+        val_batch_size=args["batch_size"],
         data_path=args["data_path"],
         seed=args["seed"],
         n_samples=args["train_samples"],

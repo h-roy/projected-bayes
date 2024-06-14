@@ -19,6 +19,11 @@ from torch.utils import data
 
 import matplotlib.pyplot as plt
 from src.data import MNIST, FashionMNIST, numpy_collate_fn
+from jax.sharding import Mesh
+from jax.sharding import PartitionSpec
+from jax.sharding import NamedSharding
+from jax.experimental import mesh_utils
+
 # from jax import config
 # config.update("jax_disable_jit", True)
 
@@ -33,6 +38,7 @@ parser.add_argument("--num_iterations", type=int, default=200)
 parser.add_argument("--sample_seed",  type=int, default=0)
 parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
+parser.add_argument("--data_sharding", type=bool, default=False)
 
 
 if __name__ == "__main__":
@@ -71,6 +77,7 @@ if __name__ == "__main__":
     n_batches = x_train.shape[0] // bs
     x_train_batched = x_train[:n_batches * bs].reshape((n_batches, -1) + x_train.shape[1:])
 
+
     ############
     ### model ##
     ############
@@ -83,6 +90,7 @@ if __name__ == "__main__":
     
     model = LeNet(**hparams)
     params_vec, unflatten, model_fn_vec = vectorize_nn(model.apply, params)
+    
     
     wandb_project = "large_scale_laplace-part3"
     wandb_logger = wandb.init(project=wandb_project, name=args.run_name, entity="dmiai-mh", config=args)
@@ -103,8 +111,16 @@ if __name__ == "__main__":
 
     eps = jax.random.normal(sample_key, (n_samples, n_params))
 
+    #Data Sharding
+    if args.data_sharding:
+        print("here")
+        P = jax.sharding.PartitionSpec
+        devices = mesh_utils.create_device_mesh((2,))
+        mesh = jax.sharding.Mesh(devices, ('x',))
+        sharding = jax.sharding.NamedSharding(mesh, P('x',))
+        x_train_batched = jax.device_put(x_train_batched, sharding)
+        params_vec = jax.device_put(params_vec, sharding)
     #Sample projections
-
     posterior_samples, metrics = sample_projections(model_fn_vec,
                                            params_vec,
                                            eps,

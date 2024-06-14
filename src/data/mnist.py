@@ -2,10 +2,12 @@ from pathlib import Path
 from typing import Literal
 import torch
 import torchvision
-from src.data.utils import get_loader, get_subset_data, RotationTransform
+from src.data.utils import get_loader, get_subset_data, RotationTransform, numpy_collate_fn, set_seed
 from src.data.fmnist import FashionMNIST
 from src.data.kmnist import KMNIST
 from src.data.emnist import EMNIST
+import torch.utils.data as data
+
 
 class MNIST(torch.utils.data.Dataset):
     def __init__(
@@ -44,46 +46,29 @@ class MNIST(torch.utils.data.Dataset):
 
 
 def get_mnist(
-        batch_size = 128,
-        shuffle = False,
+        train_batch_size = 128,
+        val_batch_size = 128,
+        purp: Literal["train", "sample"] = "train",
         n_samples_per_class: int = None,
         classes: list = list(range(10)),
         seed = 0,
         download: bool = True,
         data_path="/dtu/p1/hroy/data",
     ):
-    dataset = MNIST(
-        train=True,
-        n_samples_per_class=n_samples_per_class,
-        classes=classes,
-        seed=seed,
-        download=download, 
-        data_path=data_path, 
-    )
-    dataset_test = MNIST(
-        train=False,
-        n_samples_per_class=None,
-        classes=classes,
-        seed=seed,
-        download=download, 
-        data_path=data_path, 
-    )
-    train_loader, valid_loader = get_loader(
-        dataset,
-        split_train_val_ratio = 0.9,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=True,
-        seed=seed
-    )
-    test_loader = get_loader(
-        dataset_test,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=True,
-        seed=seed
-    )
-    return train_loader, valid_loader, test_loader
+    train_dataset = MNIST(train=True,n_samples_per_class=n_samples_per_class,classes=classes,seed=seed,download=download, data_path=data_path)
+    val_dataset = MNIST(train=True,n_samples_per_class=n_samples_per_class,classes=classes,seed=seed,download=download, data_path=data_path)
+    test_set = MNIST(train=False,n_samples_per_class=None,classes=classes,seed=seed,download=download, data_path=data_path)
+    set_seed(seed)
+    train_set, _ = torch.utils.data.random_split(train_dataset, [55000, 5000])
+    set_seed(seed)
+    _, val_set = torch.utils.data.random_split(val_dataset, [55000, 5000])
+    if purp == "train":
+        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
+    elif purp == "sample":
+        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
+    val_loader = data.DataLoader(val_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
+    test_loader = data.DataLoader(test_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
+    return train_loader, val_loader, test_loader
 
 
 def get_rotated_mnist(

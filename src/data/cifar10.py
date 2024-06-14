@@ -13,8 +13,8 @@ from typing import Literal
 
 
 def get_cifar10(
-        batch_size = 128,
-        return_dataset = False,
+        train_batch_size = 128,
+        val_batch_size = 128,
         purp: Literal["train", "sample"] = "train",
         transform = None,
         seed = 0,
@@ -60,15 +60,12 @@ def get_cifar10(
     val_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.targets), n_classes).numpy()
     test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
     if purp == "train":
-        train_loader = data.DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
+        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
     elif purp == "sample":
-        train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
-    val_loader = data.DataLoader(val_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
-    test_loader = data.DataLoader(test_set, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
-    if return_dataset:
-        return train_set.dataset, val_set.dataset, test_set.dataset
-    else:
-        return train_loader, val_loader, test_loader
+        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
+    val_loader = data.DataLoader(val_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
+    test_loader = data.DataLoader(test_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
+    return train_loader, val_loader, test_loader
 
 corruption_types = [
     "brightness",

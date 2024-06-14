@@ -75,14 +75,14 @@ def sample_projections_dataloader(
     for iter_num in tqdm(range(n_iterations)):
         # train_loader = data.DataLoader(**data_loader_hparams)
         for j, batch in enumerate(tqdm(train_loader, desc="Training", leave=False)):
-            x_batch = batch['image']
-            # eigvecs, inv_eigvals = precompute_inv_batch(model_fn, params, x_batch, output_dim)
+            x_batch = jnp.asarray(batch['image'])
+            # eigvecs, inv_eigvals = precompute_inv_batch(model_fn, params_vec, x_batch, output_dims)
             eigvecs, inv_eigvals = batched_eigvecs[j], batched_inv_eigvals[j]
             proj_vp_fn = lambda v : kernel_proj_vp_batch(vec=v, model_fn=model_fn, params=params_vec, x_batch=x_batch, eigvecs=eigvecs, inv_eigvals=inv_eigvals, output_dims=output_dims)
             projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
             proj_norm = jnp.mean(jnp.asarray(jax.vmap(lambda p: jnp.dot(p, p))(projected_samples)))
             kernel_norm = jnp.mean(jnp.array(kernel_check(projected_samples + params_vec, model_fn, params_vec, x_val)))
-            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter_num, proj_norm=proj_norm, kernel_norm=kernel_norm)
+        jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter_num, proj_norm=proj_norm, kernel_norm=kernel_norm)
 
     trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     if use_optimal_alpha:

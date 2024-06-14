@@ -16,3 +16,4 @@ export XLA_PYTHON_CLIENT_PREALLOCATE=false
 
 python experiments/sample_lenet_fmnist.py --checkpoint_path ./checkpoints/FMNIST/LeNet_FMNIST_0_params --run_name fmnist_samples_1 --num_samples 30 --num_iterations 1000 --sample_batch_size 16
 python experiments/sample_lenet_fmnist.py --checkpoint_path ./checkpoints/FMNIST/LeNet_FMNIST_1_params --run_name fmnist_samples_2 --num_samples 30 --num_iterations 1000 --sample_batch_size 16
+# python experiments/sample_classification.py --dataset MNIST --model LeNet --checkpoint_path ./checkpoints/MNIST/LeNet_MNIST_0_params  --num_samples 30 --num_iterations 1000 --sample_batch_size 16

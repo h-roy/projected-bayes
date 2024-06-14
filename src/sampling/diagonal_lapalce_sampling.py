@@ -70,7 +70,7 @@ def sample_hutchinson(
         diag += jax.flatten_util.ravel_pytree(hutchinson_diagonal(model_fn, params, gvp_batch_size, hutch_samples, subkey, data_array, likelihood, num_levels=num_levels,computation_type=computation_type))[0]
     def sample(key):
         eps = jax.random.normal(key, shape=(len(variables),))
-        sample = 1/(diag + alpha) * eps
+        sample = 1/jnp.sqrt(diag + alpha) * eps
         return sample + variables
     key_list = jax.random.split(key, n_samples)
     posterior_samples = jax.vmap(sample)(key_list)

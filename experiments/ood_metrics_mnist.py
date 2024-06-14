@@ -41,7 +41,7 @@ from src.training.configs import get_model_apply_fn, get_model_hyperparams
 
 # Parse these args
 dataset = "MNIST"
-dataset = "CIFAR-10"
+# dataset = "CIFAR-10"
 checkpoint_path = "./checkpoints/MNIST/LeNet_MNIST_0_params"
 posterior_path = "./checkpoints/posterior_MNIST/Projection_Sampling_MNIST_seed0_params"
 param_dict = pickle.load(open(f"{checkpoint_path}.pickle", "rb"))['params']
