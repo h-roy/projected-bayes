@@ -62,10 +62,12 @@ def get_mnist(
     train_set, _ = torch.utils.data.random_split(train_dataset, [55000, 5000])
     set_seed(seed)
     _, val_set = torch.utils.data.random_split(val_dataset, [55000, 5000])
+    if train_batch_size < 0:
+        batch_size = len(train_set)
     if purp == "train":
-        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
+        train_loader = data.DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
     elif purp == "sample":
-        train_loader = data.DataLoader(train_set, batch_size=train_batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
+        train_loader = data.DataLoader(train_set, batch_size=batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
     val_loader = data.DataLoader(val_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
     test_loader = data.DataLoader(test_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
     return train_loader, val_loader, test_loader

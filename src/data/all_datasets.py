@@ -1,7 +1,7 @@
 import torch
 
 from src.data.sinusoidal import Sinusoidal, get_sinusoidal
-from src.data.mnist import MNIST, get_mnist, get_rotated_mnist
+from src.data.mnist import MNIST, get_mnist, get_rotated_mnist, get_mnist_ood
 from src.data.emnist import EMNIST, get_emnist, get_rotated_emnist
 from src.data.kmnist import KMNIST, get_kmnist, get_rotated_kmnist
 from src.data.fmnist import FashionMNIST, get_fmnist, get_rotated_fmnist
@@ -27,12 +27,12 @@ def get_dataloaders(
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    if dataset_name.startswith("MNIST-R"):
-        angle = int(dataset_name.removeprefix("MNIST-R"))
-        dataset_name = "MNIST-R"
-    elif dataset_name.startswith("FMNIST-R"):
-        angle = int(dataset_name.removeprefix("FMNIST-R"))
-        dataset_name = "FMNIST-R"
+    if dataset_name.startswith("R-MNIST"):
+        angle = int(dataset_name.removeprefix("R-MNIST"))
+        dataset_name = "R-MNIST"
+    elif dataset_name.startswith("R-FMNIST"):
+        angle = int(dataset_name.removeprefix("R-FMNIST"))
+        dataset_name = "R-FMNIST"
     elif dataset_name.startswith("CIFAR-10-C"):
         severity_level, corr_type = dataset_name.removeprefix("CIFAR-10-C").split('-')
         severity_level = int(severity_level)
@@ -59,7 +59,7 @@ def get_dataloaders(
             download = download, 
             data_path = data_path
         )
-    elif dataset_name == "MNIST-R":
+    elif dataset_name == "R-MNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_rotated_mnist(
             angle = angle,
@@ -83,7 +83,7 @@ def get_dataloaders(
             download = download, 
             data_path = data_path
         )
-    elif dataset_name == "FMNIST-R":
+    elif dataset_name == "R-FMNIST":
         classes = list(range(10))
         train_loader, valid_loader, test_loader = get_rotated_fmnist(
             angle = angle,
@@ -208,3 +208,41 @@ def get_dataloaders(
         raise ValueError(f"Dataset {dataset_name} is not implemented")
     
     return train_loader, valid_loader, test_loader
+
+def get_ood_datasets(experiment, 
+                     ood_batch_size, 
+                     n_samples, 
+                     val=False, 
+                     corruption="fog"):
+    ood_dict = {}
+    if experiment == "R-MNIST":
+        ids = [0, 15, 30, 60, 90, 120, 150, 180]
+        for id in ids:
+            _, val_loader, test_loader = get_dataloaders(experiment+f"{id}", n_samples=n_samples, val_batch_size=ood_batch_size, purp="train", angle=id)
+            ood_dict[id] = val_loader if val else test_loader
+    elif experiment == "R-FMNIST":
+        ids = [0, 15, 30, 60, 90, 120, 150, 180]
+        for id in ids:
+            _, val_loader, test_loader = get_dataloaders(experiment+f"{id}", n_samples=n_samples, val_batch_size=ood_batch_size, purp="train", angle=id)
+            ood_dict[id] = val_loader if val else test_loader
+    elif experiment == "CIFAR-10-C":
+        severity = [1, 2, 3, 4, 5]
+        c = corruption
+        for s in severity:
+            _, _, test_loader = get_dataloaders(experiment+f"{s}-{c}", n_samples=n_samples, val_batch_size=ood_batch_size, purp="train")
+            ood_dict[f"{s}-{c}"] = test_loader
+
+    elif experiment in ["MNIST-OOD", "FMNIST-OOD"]:
+        ids = ["MNIST", "FMNIST", "KMNIST", "EMNIST"]
+        num_samples_per_class = n_samples // 10
+        for id in ids:
+            _, val_loader, test_loader = get_mnist_ood(id, ood_batch_size, n_samples_per_class=num_samples_per_class)
+            ood_dict[id] = val_loader if val else test_loader
+    elif experiment in ["CIFAR-10-OOD", "SVHN-OOD", "CIFAR-100-OOD"]:
+        ood_datasets_dict = get_dataloaders("CIFAR-10-OOD", n_samples=n_samples)
+        ids = ["CIFAR-10", "SVHN", "CIFAR-100"]
+        for id in ids:
+            ood_dict[id] = ood_datasets_dict[id + ('-val' if val else '-test')]
+    elif experiment == "ImageNet-OOD":
+        raise NotImplementedError
+    return ood_dict

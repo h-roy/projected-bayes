@@ -59,6 +59,8 @@ def get_cifar10(
     train_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(train_set.dataset.targets), n_classes).numpy()
     val_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.targets), n_classes).numpy()
     test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
+    if train_batch_size < 0:
+        batch_size = len(train_set)
     if purp == "train":
         train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
     elif purp == "sample":
@@ -139,7 +141,6 @@ def get_cifar10_corrupted(
         severity_level = severity_level,
         data_path = data_path,
     )
-    
     test_loader = get_loader(
         dataset,
         batch_size=batch_size,

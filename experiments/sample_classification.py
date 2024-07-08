@@ -40,7 +40,7 @@ from src.data import get_cifar10, numpy_collate_fn
 # basically orthogonal to the plane and project down to the MAP param
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", type=str, choices=["MNIST", "FMNIST", "CIFAR-10", "SVHN", "CIFAR-100", "ImageNette"])
+parser.add_argument("--dataset", type=str, choices=["MNIST", "FMNIST", "CIFAR-10", "SVHN", "CIFAR-100", "ImageNet"])
 parser.add_argument(
     "--model",
     type=str,
@@ -51,9 +51,11 @@ parser.add_argument("--run_name", default="Projection_Sampling_CIFAR10", help="F
 parser.add_argument("--num_samples", type=int, default=5)
 parser.add_argument("--num_iterations", type=int, default=200)
 parser.add_argument("--sample_seed",  type=int, default=0)
-parser.add_argument("--macro_batch_size",  type=int, default=55000)
+parser.add_argument("--macro_batch_size",  type=int, default=-1)
 parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
+parser.add_argument("--data_sharding", action="store_true", required=False, default=False)
+parser.add_argument("--num_gpus", type=int, default=1)
 
 
 if __name__ == "__main__":
@@ -78,6 +80,9 @@ if __name__ == "__main__":
             seed=seed,
             purp='sample'
         ) 
+
+    x_val = next(iter(val_loader))['image']
+
     
     #############
     ### model ###
@@ -101,7 +106,6 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    x_val = next(iter(val_loader))['image']
 
     # Sample Priors or Load Checkpoints
     n_iterations = args.num_iterations
@@ -116,20 +120,25 @@ if __name__ == "__main__":
     eps = jax.random.normal(sample_key, (n_samples, n_params))
 
     #Sample projections
-
+    data_sharding = args.data_sharding
+    num_gpus = args.num_gpus
     posterior_samples, metrics = sample_projections_dataloader(
                                                       model_fn_vec,
                                                       params_vec,
                                                       eps,
                                                       alpha,
                                                       train_loader,
+                                                      args.sample_batch_size,
                                                       seed,
                                                       output_dim,
                                                       n_iterations,
                                                       x_val,
                                                       n_params,
                                                       unflatten,
-                                                      True)
+                                                      True,
+                                                      data_sharding,
+                                                      num_gpus
+                                                      )
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")
     posterior_dict = {

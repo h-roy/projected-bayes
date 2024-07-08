@@ -55,6 +55,8 @@ def get_cifar100(
     train_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(train_set.dataset.targets), n_classes).numpy()
     val_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.targets), n_classes).numpy()
     test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
+    if train_batch_size < 0:
+        batch_size = len(train_set)
     if purp == "train":
         train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
     elif purp == "sample":
