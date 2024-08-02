@@ -80,7 +80,7 @@ def get_svhn(
         # val_set.dataset.labels = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.labels), n_classes).numpy()
         # test_set.labels = torch.nn.functional.one_hot(torch.tensor(test_set.labels), n_classes).numpy()
         if train_batch_size < 0:
-            batch_size = len(train_set)
+            train_batch_size = len(train_set)
         if purp == "train":
             train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
         elif purp == "sample":

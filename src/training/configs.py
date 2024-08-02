@@ -46,12 +46,6 @@ def get_model_hyperparams(n_classes, model_name):
     else:
         raise ValueError(f"Configs for Model {model_name} not implemented yet.")
     return hparams
-# MLP
-    # {"n_classes": n_classes, "hidden_dim": 64, "num_layers": 3}
-            # if args["model"] == "MLP"
-            # else {
-            #     "n_classes": n_classes,
-            # }
 
 # Optimizer Hyperparameters
 

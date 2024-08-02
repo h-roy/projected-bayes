@@ -47,6 +47,8 @@ def evaluate(test_loader, posterior_samples, params, model_fn, eval_args):
     all_y_prob = jnp.concatenate(all_y_prob, axis=0)
     all_y_log_prob = jnp.concatenate(all_y_log_prob, axis=0)
     all_y_true = jnp.concatenate(all_y_true, axis=0)
+    if all_y_true.shape[-1] != all_y_log_prob.shape[-1]:
+        all_y_true = all_y_true[... , :all_y_log_prob.shape[-1]]
 
     # compute some metrics: mean confidence, accuracy and negative log-likelihood
     metrics = {}
@@ -100,6 +102,9 @@ def evaluate_map(test_loader, params, model_fn, eval_args):
     all_y_log_prob = jnp.concatenate(all_y_log_prob, axis=0)
     all_y_true = jnp.concatenate(all_y_true, axis=0)
     # compute some metrics: mean confidence, accuracy and negative log-likelihood
+    if all_y_true.shape[-1] != all_y_log_prob.shape[-1]:
+        all_y_true = all_y_true[... , :all_y_log_prob.shape[-1]]
+        
     metrics = {}
     if eval_args["likelihood"] == "classification":
         all_y_var = None

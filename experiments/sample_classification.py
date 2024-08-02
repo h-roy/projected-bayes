@@ -141,6 +141,10 @@ if __name__ == "__main__":
                                                       )
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")
+    metrics["time"] = time.time()-start_time
+    metrics["num_params"] = n_params
+    metrics["num_samples"] = n_samples
+    metrics["num_iterations"] = n_iterations
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }

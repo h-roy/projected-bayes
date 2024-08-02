@@ -145,25 +145,25 @@ def main(args: dict):
     batch = next(iter(train_loader))
     imgs, labels = batch['image'], batch['label']
 
-    resnet_trainer, resnet_results = train_classifier(
-                                                    TrainerModule=TRAINERS[args["trainer"]],
-                                                    model_name=args["model"],
-                                                    model_class=load_obj(MODELS_DICT[args["model"]]),
-                                                    model_hparams=model_hparams,
-                                                    optimizer_name=optimizer_name,
-                                                    # optimizer_hparams=process_optimizer_args(args),
-                                                    optimizer_hparams=optimizer_hparams,
-                                                    exmp_imgs=jax.device_put(
-                                                                    imgs),
-                                                    num_epochs=200,
-                                                    train_loader=train_loader,
-                                                    val_loader=val_loader,
-                                                    test_loader=test_loader,
-                                                    wandb_logger=wandb_logger,
-                                                    args_dict=args,
-                                                    seed = args["seed"])
+    rainer, results = train_classifier(
+                                        TrainerModule=TRAINERS[args["trainer"]],
+                                        model_name=args["model"],
+                                        model_class=load_obj(MODELS_DICT[args["model"]]),
+                                        model_hparams=model_hparams,
+                                        optimizer_name=optimizer_name,
+                                        # optimizer_hparams=process_optimizer_args(args),
+                                        optimizer_hparams=optimizer_hparams,
+                                        exmp_imgs=jax.device_put(
+                                                        imgs),
+                                        num_epochs=200,
+                                        train_loader=train_loader,
+                                        val_loader=val_loader,
+                                        test_loader=test_loader,
+                                        wandb_logger=wandb_logger,
+                                        args_dict=args,
+                                        seed = args["seed"])
 
-    print(resnet_results)
+    print(results)
 
 if __name__ == "__main__":
     args = parser.parse_args()
