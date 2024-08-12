@@ -122,6 +122,7 @@ for i, id in enumerate(ids):
 # python experiments/ood_metrics.py --dataset MNIST --model LeNet --posterior_type Projection --experiment MNIST-OOD --parameter_path ./checkpoints/MNIST/LeNet_MNIST_0_params --posterior_path ./checkpoints/posterior_samples/MNIST/LeNet/mnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 # python experiments/ood_metrics.py --dataset FMNIST --model LeNet --posterior_type Projection --experiment FMNIST-OOD --parameter_path ./checkpoints/FMNIST/LeNet_FMNIST_0_params --posterior_path ./checkpoints/posterior_samples/FMNIST/LeNet/fmnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 # python experiments/ood_metrics.py --dataset CIFAR-10 --model ResNet_small --posterior_type Projection --experiment CIFAR-10-OOD --parameter_path ./checkpoints/CIFAR10/ResNet_small_CIFAR-10_0_params --posterior_path ./checkpoints/posterior_samples/CIFAR-10/ResNet_small/cifar_samples_1_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
+# python experiments/ood_metrics.py --dataset MNIST --model LeNet --posterior_type Projection --experiment MNIST-OOD --parameter_path ./checkpoints/MNIST/LeNet_MNIST_0_params --posterior_path ./checkpoints/loss_kernel_samples/MNIST/LeNet/mnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 os.makedirs(f"./results/{args.dataset}/{args.model}/{args.experiment}", exist_ok=True)
 
 save_path = f"./results/{args.dataset}/{args.model}/{args.experiment}/{posterior_type}"

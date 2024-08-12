@@ -29,6 +29,7 @@ from tqdm.auto import tqdm
 from src.training.classification_trainer import Classification_Trainer
 
 
+
 ## To run JAX on TPU in Google Colab, uncomment the two lines below
 # import jax.tools.colab_tpu
 # jax.tools.colab_tpu.setup_tpu()
@@ -53,6 +54,9 @@ from torchvision.datasets import CIFAR10, CIFAR100
 from src.data import get_cifar10
 from src.models import MODELS_DICT, ResNetBlock_small, ResNet_small
 import optax
+
+jax.profiler.start_trace("/tmp/tensorboard")
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str, choices=["MNIST", "FMNIST", "CIFAR-10", "SVHN", "CIFAR-100", "ImageNette"], default="CIFAR-10")
 parser.add_argument("--data_path", type=str, default="/dtu/p1/hroy/data", help="root of dataset")
@@ -169,5 +173,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
+    jax.profiler.stop_trace()
+    print("Finished training")
 
 
