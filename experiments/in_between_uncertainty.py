@@ -9,15 +9,21 @@ import matplotlib.pyplot as plt
 import optax
 from src.models.fc import FC_NN
 import tree_math as tm
-from src.helper import compute_num_params
+from src.helper import compute_num_params, tree_random_normal_like
 from src.losses import sse_loss
 from src.sampling.predictive_samplers import sample_predictive
-from src.sampling.projection_sampling import sample_projections, tree_random_normal_like
+from src.sampling import sample_projections, sample_loss_projections
 
 from src.sampling import precompute_inv, kernel_proj_vp
 
 def f(x):
     return jnp.cos(4 * x + 0.8)
+
+def sse_loss_per_datapoint(preds, y):
+    preds = preds.squeeze()
+    y = y.squeeze()
+    residual = preds - y
+    return (residual**2)
 
 # Projection Sampling
 param_dict = pickle.load(open("./checkpoints/syntetic_regression.pickle", "rb"))
@@ -28,13 +34,15 @@ alpha = param_dict['alpha']
 rho = param_dict['rho']
 X_train, Y_train, X_val, Y_val, model, D = param_dict["train_stats"]['x_train'],param_dict["train_stats"]['y_train'],param_dict["train_stats"]['x_val'],param_dict["train_stats"]['y_val'],param_dict["train_stats"]['model'], param_dict["train_stats"]['n_params']
 X_train_batched = X_train.reshape(-1, 100, 1)
+Y_train_batched = Y_train.reshape(-1, 100, 1)
 output_dim = 1
 model_fn = model.apply
 n_samples = 200
 key = jax.random.PRNGKey(0)
 eps = tree_random_normal_like(key, params, n_samples)
-n_iterations = 5
+n_iterations = 1
 x_track = X_train_batched[0]
+y_track = Y_train_batched[0]
 
 def model_vec_apply(params_vec, x):
     return model.apply(unflatten(params_vec), x)
@@ -42,18 +50,35 @@ eps = jax.random.normal(key, (n_samples, D))
 alpha = 0.5
 
 # Proj Samples
-proj_samples = sample_projections(model_vec_apply,
-                             params_vec,
-                             eps,
-                             alpha,
-                             X_train_batched,
-                             output_dim,
-                             n_iterations,
-                             x_track,
-                             D,
-                             unflatten
+# proj_samples, metrics = sample_projections(model_vec_apply,
+#                              params_vec,
+#                              eps,
+#                              alpha,
+#                              X_train_batched,
+#                              output_dim,
+#                              n_iterations,
+#                              x_track,
+#                              D,
+#                              unflatten
+#     )
+proj_samples, metrics = sample_loss_projections(
+                            model_vec_apply,
+                            sse_loss_per_datapoint,
+                            params_vec,
+                            eps,
+                            alpha,
+                            X_train_batched,
+                            Y_train_batched,
+                            n_iterations,
+                            x_track,
+                            y_track,
+                            D,
+                            unflatten,
+                            False
     )
-proj_predictive = sample_predictive(proj_samples, params, model_fn, X_val, True, "Pytree")
+
+linearised_lapalce = True
+proj_predictive = sample_predictive(proj_samples, params, model_fn, X_val, linearised_lapalce, "Pytree")
 proj_posterior_predictive_mean = jnp.mean(proj_predictive, axis=0).squeeze()
 proj_posterior_predictive_std = jnp.std(proj_predictive, axis=0).squeeze()
 
