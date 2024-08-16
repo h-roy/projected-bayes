@@ -150,7 +150,7 @@ if __name__ == "__main__":
     }
     os.makedirs(f"./checkpoints/posterior_samples/{args.dataset}/{args.model}", exist_ok=True)
     if args.run_name is not None:
-        save_name = f"{args.run_name}_seed_{args.sample_seed}"
+        save_name = f"{args.run_name}_sample_seed_{args.sample_seed}"
     else:
         save_name = f"started_{now_string}"
 

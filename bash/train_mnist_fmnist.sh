@@ -14,10 +14,10 @@ module load python3/3.11.4 cuda/12.3.2 cudnn/v8.9.1.23-prod-cuda-12.X
 source proj/bin/activate
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 
-python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 0
-python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 1
-python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 2
+# python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 0
+# python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 1
+# python experiments/train_classification.py --model LeNet --dataset MNIST --trainer lenet --run_name MNIST --seed 2
 
-python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --run_name FMNIST --seed 0
-python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --run_name FMNIST --seed 1
-python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --run_name FMNIST --seed 2
+python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --n_epochs 1000 --run_name FMNIST --seed 0
+python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --n_epochs 1000 --run_name FMNIST --seed 1
+python experiments/train_classification.py --model LeNet --dataset FMNIST --trainer lenet --n_epochs 1000 --run_name FMNIST --seed 2

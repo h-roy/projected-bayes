@@ -2,6 +2,9 @@
 /results/
 /proj/
 /wandb/
+/trace/
+/weights/
+/~/
 /checkpoints/
 /experiments/data/
 /logs/
@@ -126,3 +129,9 @@ data/EMNIST/raw/gzip.zip
 src/laplace/last_layer/__pycache__/extract_last_layer.cpython-39.pyc
 src/sampling/__pycache__/last_layer_sampling.cpython-39.pyc
 src/sampling/__pycache__/diagonal_lapalce_sampling.cpython-39.pyc
+src/baselines/__pycache__/__init__.cpython-39.pyc
+src/baselines/__pycache__/laplace_baselines.cpython-39.pyc
+src/baselines/__pycache__/swag.cpython-39.pyc
+src/sampling/__pycache__/alternating_loss_projections.cpython-39.pyc
+src/sampling/__pycache__/precompute_loss_inv.cpython-39.pyc
+src/sampling/__pycache__/projection_loss_sampling.cpython-39.pyc

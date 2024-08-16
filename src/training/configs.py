@@ -70,7 +70,7 @@ def get_optimizer_hyperparams(model_name):
                            "weight_decay": 1e-4}
     elif model_name in ["LeNet", "MLP"]:
         optimizer_name = "adamw"
-        optimizer_hparams={"lr": 0.01,
+        optimizer_hparams={"lr": 1e-3,
                            "weight_decay": 0.001}
     else:
         raise ValueError(f"Configs for Model {model_name} not implemented yet.")

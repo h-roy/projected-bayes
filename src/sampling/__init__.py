@@ -4,5 +4,5 @@ from .alternating_projections import kernel_proj_vp, kernel_proj_vp_batch
 from .alternating_loss_projections import loss_kernel_proj_vp
 from .predictive_samplers import sample_predictive, sample_hessian_predictive
 from .projection_sampling import sample_projections, sample_projections_dataloader
-from .projection_loss_sampling import sample_loss_projections_dataloader
+from .projection_loss_sampling import sample_loss_projections_dataloader, sample_loss_projections
 from .sample_utils import kernel_check, sample_accuracy, vectorize_nn

@@ -15,6 +15,42 @@ from jax.experimental import mesh_utils
 from jax import config
 config.update("jax_debug_nans", True)
 
+def sample_loss_projections( 
+    model_fn: Callable,
+    loss_fn: Callable,
+    params_vec,
+    eps,
+    alpha: float,
+    x_train_batched,
+    y_train_batched,
+    n_iterations: int,
+    x_val: jnp.ndarray,
+    y_val: jnp.ndarray,
+    n_params,
+    unflatten_fn: Callable,
+    use_optimal_alpha: bool = False,
+):
+    # eps = tree_random_normal_like(key, params, n_posterior_samples)
+    # prior_samples = jax.tree_map(lambda x: 1/jnp.sqrt(alpha) * x, eps)
+
+    # Eps is a Standard Random Normal Pytree
+    prior_samples = eps
+    batched_eigvecs, batched_inv_eigvals = precompute_loss_inv(model_fn, loss_fn, params_vec, x_train_batched, y_train_batched)
+    proj_vp_fn = lambda v : loss_kernel_proj_vp(vec=v, model_fn=model_fn, loss_fn=loss_fn, params=params_vec, 
+                                                    x_train_batched=x_train_batched, y_train_batched=y_train_batched, batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
+                                                    n_iterations=n_iterations, x_val=x_val, y_val=y_val)
+    projected_samples = jax.vmap(proj_vp_fn)(prior_samples)
+    trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
+    if use_optimal_alpha:
+        print("Initial alpha:", alpha)
+        alpha = jnp.dot(params_vec, params_vec) / (n_params - trace_proj)
+        print("Optimal alpha:", alpha) 
+    posterior_samples = jax.vmap(lambda single_sample: unflatten_fn(params_vec + 1/jnp.sqrt(alpha) * single_sample))(projected_samples)
+    metrics = {"kernel_dim": trace_proj, "alpha": alpha}
+    return posterior_samples, metrics
+
+
+
 def sample_loss_projections_dataloader( 
     model_fn: Callable,
     loss_fn: Callable,
@@ -54,4 +90,6 @@ def sample_loss_projections_dataloader(
     posterior_samples = jax.vmap(lambda single_sample: unflatten_fn(params_vec + 1/jnp.sqrt(alpha) * single_sample))(projected_samples)
     metrics = {"kernel_dim": trace_proj, "alpha": alpha}
     return posterior_samples, metrics
+
+
 

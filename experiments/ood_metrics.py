@@ -36,7 +36,7 @@ parser.add_argument(
     type=str,
     choices=["LeNet", "MLP", "ResNet_small", "ResNet18", "DenseNet", "GoogleNet", "VisionTransformer"],
 )
-parser.add_argument("--posterior_type", type=str, choices=["MAP", "Projection"])
+parser.add_argument("--posterior_type", type=str, choices=["MAP", "Projection", "Loss-Kernel"])
 parser.add_argument("--experiment", type=str, choices=["MNIST-OOD", "R-MNIST", "FMNIST-OOD", "R-FMNIST", "CIFAR-10-OOD", "CIFAR-10-C", "SVHN-OOD", "CIFAR-100-OOD", "ImageNet-OOD"])
 parser.add_argument("--parameter_path", type=str, default="./checkpoints/MNIST/LeNet_MNIST_0_params")
 parser.add_argument("--posterior_path", type=str, default="./checkpoints/posterior_samples/MNIST/LeNet/mnist_samples_seed_0_params")
@@ -90,12 +90,11 @@ if experiment[-3:] == 'OOD':
     ids[0], ids[idx] = ids[idx], ids[0]
 
 evaluate_fn = evaluate_map if posterior_type == "MAP" else evaluate
-
 eval_args = {}
 eval_args["posterior_sample_type"] = "Pytree"
 eval_args["likelihood"] = "classification"
 
-if posterior_type in ["Projection"]:
+if posterior_type in ["Projection", "Loss-Kernel"]:
     eval_args["linearised_laplace"] = True
 elif posterior_type in ["MAP"]:
     eval_args["linearised_laplace"] = False
@@ -123,6 +122,8 @@ for i, id in enumerate(ids):
 # python experiments/ood_metrics.py --dataset FMNIST --model LeNet --posterior_type Projection --experiment FMNIST-OOD --parameter_path ./checkpoints/FMNIST/LeNet_FMNIST_0_params --posterior_path ./checkpoints/posterior_samples/FMNIST/LeNet/fmnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 # python experiments/ood_metrics.py --dataset CIFAR-10 --model ResNet_small --posterior_type Projection --experiment CIFAR-10-OOD --parameter_path ./checkpoints/CIFAR10/ResNet_small_CIFAR-10_0_params --posterior_path ./checkpoints/posterior_samples/CIFAR-10/ResNet_small/cifar_samples_1_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 # python experiments/ood_metrics.py --dataset MNIST --model LeNet --posterior_type Projection --experiment MNIST-OOD --parameter_path ./checkpoints/MNIST/LeNet_MNIST_0_params --posterior_path ./checkpoints/loss_kernel_samples/MNIST/LeNet/mnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
+# python experiments/ood_metrics.py --dataset FMNIST --model LeNet --posterior_type Loss-Kernel --experiment FMNIST-OOD --parameter_path ./checkpoints/FMNIST/LeNet_FMNIST_0_params --posterior_path ./checkpoints/loss_kernel_samples/FMNIST/LeNet/fmnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
+# python experiments/ood_metrics.py --dataset FMNIST --model LeNet --posterior_type Loss-Kernel --experiment R-FMNIST --parameter_path ./checkpoints/FMNIST/LeNet_FMNIST_0_params --posterior_path ./checkpoints/loss_kernel_samples/FMNIST/LeNet/fmnist_samples_seed_0_params --ood_batch_size 128 --num_samples_per_class 500
 os.makedirs(f"./results/{args.dataset}/{args.model}/{args.experiment}", exist_ok=True)
 
 save_path = f"./results/{args.dataset}/{args.model}/{args.experiment}/{posterior_type}"
