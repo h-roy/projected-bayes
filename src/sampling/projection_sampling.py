@@ -63,7 +63,8 @@ def sample_projections_dataloader(
     unflatten_fn: Callable,
     use_optimal_alpha: bool = False,
     data_sharding: bool = False,
-    num_gpus: int = 1
+    num_gpus: int = 1,
+    acceleration: bool = False
 ):
     set_seed(seed)
     projected_samples = eps
@@ -86,7 +87,7 @@ def sample_projections_dataloader(
         batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params_vec, x_train_batched, output_dims, "scan")
         proj_vp_fn = lambda v : kernel_proj_vp(vec=v, model_fn=model_fn, params=params_vec, x_train_batched=x_train_batched, 
                                            batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
-                                           output_dims=output_dims, n_iterations=n_iterations, x_val=x_val)
+                                           output_dims=output_dims, n_iterations=n_iterations, x_val=x_val, acceleration=acceleration)
         projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
         del x_train_batched, x_data, batched_eigvecs, batched_inv_eigvals, proj_vp_fn
     trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()

@@ -8,6 +8,21 @@ def sse_loss(preds, y):
     residual = preds - y
     return jnp.sum(residual**2)
 
+def mse_recon_loss(model_fn, params, batch, rng):
+    imgs, _ = batch
+    recon_imgs = model_fn(params, imgs, rng)
+    loss = ((recon_imgs - imgs) ** 2).mean(axis=0).sum()  # Mean over batch, sum over pixels
+    return loss
+
+@jax.vmap
+def elbo(model_fn, params, batch, rng):
+    imgs, _ = batch
+    recon_imgs, mean, logvar = model_fn(params, imgs, rng)
+    kld = -0.5 * jnp.sum(1 + logvar - jnp.square(mean) - jnp.exp(logvar))
+    recon_loss = ((recon_imgs - imgs) ** 2).mean(axis=0).sum()
+    loss = recon_loss + kld
+    return loss
+
 
 def cross_entropy_loss(preds, y, rho=1.0):
     """

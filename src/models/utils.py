@@ -44,3 +44,4 @@ def load_model(
     print(f"Loaded {args_dict['model']} with {P} parameters")
 
     return model, params
+

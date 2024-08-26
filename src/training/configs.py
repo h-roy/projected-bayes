@@ -96,3 +96,29 @@ def get_model_apply_fn(model_name, model_apply, batch_stats=None, rng=None):
         raise ValueError(f"Configs for Model {model_name} not implemented yet.")
     
     return model_fn
+
+
+def get_imagenet_model_fn(model_name, model, rng, batch_stats=None):
+    if model_name[:4] == "swin":
+        model_apply = lambda p, x: model.apply(
+            {"params": p},
+            x,
+            False,
+            rngs={"drop_path": rng},
+            mutable=["attention_mask", "relative_position_index"],
+        )[0]
+        return model_apply
+    elif model_name[:4] == "pvit":
+        model_apply = lambda p, x: model.apply({"params": p}, x, True)
+        return model_apply
+    elif model_name[:3] == "van":
+        model_apply = lambda p, x: model.apply({"params": p, "batch_stats": batch_stats}, x, True)
+        return model_apply
+    elif model_name[:8] == "convnext":
+        model_apply = lambda p, x: model.apply({"params": p}, x, True)
+        return model_apply
+    elif model_name[:4] == "cait":
+        model_apply = lambda p, x: model.apply({"params": p}, x, True)
+        return model_apply
+    else:
+        raise NotImplementedError(f"Model {model_name} has no pretrained weights!")

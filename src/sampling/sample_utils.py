@@ -30,3 +30,12 @@ def vectorize_nn(model_fn, params):
     def model_apply_vec(params_vectorized, x):
         return model_fn(unflatten_fn(params_vectorized), x)
     return params_vec, unflatten_fn, model_apply_vec
+
+def linearize_model_fn(model_fn, linearization_params):
+    def linearized_model_fn(params, x):
+        centered_params = jax.tree_map(lambda x,y: x - y, params, linearization_params)
+        map_pred = model_fn(linearization_params, x)
+        model_fn_p = lambda p: model_fn(p, x)
+        jvp = jax.jvp(model_fn_p, (linearization_params,), (centered_params,))[1]
+        return map_pred + jvp
+    return linearized_model_fn
