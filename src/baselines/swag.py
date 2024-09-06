@@ -126,7 +126,7 @@ def swag_score_fun(
         train_loader, 
         likelihood: Literal["classification", "regression"]="classification", 
         diag_only=True, max_num_models=20, swa_c_epochs=1, swa_c_batches=None,
-        swa_lr=0.01, momentum=0.9, wd=3e-4, batch_stats=None
+        swa_lr=0.1, momentum=0.09, wd=3e-4, batch_stats=None
     ):
 
     ########################
@@ -252,7 +252,6 @@ def swag_score_fun(
         #for batch_idx, batch in enumerate(train_loader):
             X = jnp.array(batch['image'])
             Y = jnp.array(batch['label'])
-
             opt_state, params_dict, batch_loss, batch_acc_or_sse = train_step(opt_state, params_dict, X, Y)
 
             loss_avg += batch_loss.item()

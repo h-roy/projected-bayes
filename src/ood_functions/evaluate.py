@@ -55,7 +55,7 @@ def evaluate(test_loader, posterior_samples, params, model_fn, eval_args):
     if eval_args["likelihood"] == "classification":
         all_y_var = jnp.concatenate(all_y_var, axis=0)
         metrics["conf"] = (jnp.max(all_y_prob, axis=1)).mean().item()
-        metrics["nll"] = (-jnp.sum(jnp.sum(all_y_log_prob * all_y_true, axis=-1), axis=-1)).mean()
+        metrics["nll"] = (-jnp.mean(jnp.sum(all_y_log_prob * all_y_true, axis=-1), axis=-1)).mean()
         metrics["acc"] =  (jnp.argmax(all_y_prob, axis=1)==jnp.argmax(all_y_true, axis=1)).mean().item()
     elif eval_args["likelihood"] == "regression":
         sigma_noise = 1  # TODO: define sigma_noise!
@@ -109,7 +109,7 @@ def evaluate_map(test_loader, params, model_fn, eval_args):
     if eval_args["likelihood"] == "classification":
         all_y_var = None
         metrics["conf"] = (jnp.max(all_y_prob, axis=1)).mean().item()
-        metrics["nll"] = (-jnp.sum(jnp.sum(all_y_log_prob * all_y_true, axis=-1), axis=-1)).mean()
+        metrics["nll"] = (-jnp.mean(jnp.sum(all_y_log_prob * all_y_true, axis=-1), axis=-1)).mean()
         metrics["acc"] =  (jnp.argmax(all_y_prob, axis=1)==jnp.argmax(all_y_true, axis=1)).mean().item()
     elif eval_args["likelihood"] == "regression":
         sigma_noise = 1  # TODO: define sigma_noise!

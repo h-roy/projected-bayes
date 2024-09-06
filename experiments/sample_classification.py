@@ -26,6 +26,7 @@ os.environ['XLA_FLAGS'] = (
     '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
+    '--xla_gpu_strict_conv_algorithm_picker=false'
 )
 
 import wandb
@@ -56,7 +57,8 @@ parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
 parser.add_argument("--data_sharding", action="store_true", required=False, default=False)
 parser.add_argument("--num_gpus", type=int, default=1)
-
+parser.add_argument("--acceleration", action="store_true", required=False, default=False)
+parser.add_argument("--checkpoint", type=str, default=None)
 
 if __name__ == "__main__":
     now = datetime.datetime.now()
@@ -116,12 +118,19 @@ if __name__ == "__main__":
     sample_key = jax.random.PRNGKey(seed)
 
     alpha = args.posthoc_precision
-
-    eps = jax.random.normal(sample_key, (n_samples, n_params))
+    if args.checkpoint is None:
+        eps = jax.random.normal(sample_key, (n_samples, n_params))
+    else:
+        eps = pickle.load(open(f"{args.checkpoint}.pickle", "rb"))['posterior_samples']
+        eps = jax.vmap(lambda sample: jax.tree_map(lambda x,y: x-y, sample, params))(eps)
+        eps, _ = jax.flatten_util.ravel_pytree(eps)
+        n_samples = len(eps) // len(params_vec)
+        eps = jnp.asarray(eps).reshape((n_samples, -1))
 
     #Sample projections
     data_sharding = args.data_sharding
     num_gpus = args.num_gpus
+    acceleration = args.acceleration
     posterior_samples, metrics = sample_projections_dataloader(
                                                       model_fn_vec,
                                                       params_vec,
@@ -135,9 +144,10 @@ if __name__ == "__main__":
                                                       x_val,
                                                       n_params,
                                                       unflatten,
-                                                      True,
+                                                      False,
                                                       data_sharding,
-                                                      num_gpus
+                                                      num_gpus,
+                                                      acceleration
                                                       )
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")

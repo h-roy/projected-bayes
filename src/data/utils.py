@@ -82,6 +82,7 @@ def get_subset_data(data, targets, classes, n_samples_per_class=None, seed=0):
     return data, targets
 
 
+
 def get_loader(
         dataset,
         batch_size = 128,
@@ -129,7 +130,7 @@ def get_loader(
                 collate_fn=numpy_collate_fn,
             ),
         )
-
+    
 def get_output_dim(dataset_name):
     if dataset_name in ["Sinusoidal", "UCI"]:
         return 1 

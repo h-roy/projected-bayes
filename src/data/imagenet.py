@@ -125,6 +125,38 @@ class Imagenet_testset(torch.utils.data.Dataset):
         return (image, label)
 
 
+def get_imagenet_val_loader(batch_size=128, seed=0, n_samples_per_class=None):
+    set_seed(seed)
+    n_classes = 1000
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+
+    normalize = image_to_numpy(mean, std)
+    test_transform = T.Compose([T.Resize(256), T.CenterCrop(224), normalize])
+
+    def target_transform(y):
+        return F.one_hot(torch.tensor(y), n_classes).numpy()
+
+    test_set = Imagenet_testset(
+        root_dir="/dtu/imagenet/ILSVRC/Data/CLS-LOC/val/", label_file="/dtu/p1/hroy/projected-bayes/src/data/val_label.txt", 
+        transform=test_transform, test_transform=target_transform
+    )
+
+    if n_samples_per_class is not None:
+        set_seed(seed)
+        n_data = int(n_samples_per_class * n_classes)
+        test_set, _ = torch.utils.data.random_split(
+            test_set, [n_data, len(test_set) - n_data]
+        )
+
+    return data.DataLoader(
+        test_set,
+        batch_size=batch_size,
+        drop_last=True,
+        pin_memory=True,
+        collate_fn=numpy_collate_fn,
+    )
+
 def get_imagenet_test_loader(batch_size=128, seed=0, n_samples_per_class=None):
     set_seed(seed)
     n_classes = 1000
@@ -138,6 +170,7 @@ def get_imagenet_test_loader(batch_size=128, seed=0, n_samples_per_class=None):
         return F.one_hot(torch.tensor(y), n_classes).numpy()
 
     test_set = Imagenet_testset(
+        root_dir="/dtu/imagenet/ILSVRC/Data/CLS-LOC/test/", label_file="/dtu/p1/hroy/projected-bayes/src/data/test_label.txt", 
         transform=test_transform, test_transform=target_transform
     )
 
@@ -157,6 +190,7 @@ def get_imagenet_test_loader(batch_size=128, seed=0, n_samples_per_class=None):
     )
 
 
+
 def get_places365(
     batch_size=128,
     seed=0,
@@ -168,7 +202,8 @@ def get_places365(
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     normalize = image_to_numpy(mean, std)
-    transform = normalize
+    transform = T.Compose([T.Resize(256), T.CenterCrop(224), normalize])
+    # transform = normalize
 
     def target_transform(y):
         return F.one_hot(torch.tensor(y), n_classes).numpy()
@@ -185,7 +220,7 @@ def get_places365(
     )
     if n_samples_per_class is not None:
         set_seed(seed)
-        n_data = int(n_samples_per_class * 10)
+        n_data = int(n_samples_per_class * n_classes)
         dataset, _ = torch.utils.data.random_split(
             dataset, [n_data, len(dataset) - n_data]
         )

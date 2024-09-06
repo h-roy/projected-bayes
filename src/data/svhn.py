@@ -85,7 +85,7 @@ def get_svhn(
             train_loader = data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn)
         elif purp == "sample":
             train_loader = data.DataLoader(train_set, batch_size=train_batch_size, drop_last=True, pin_memory=True, num_workers=4, collate_fn=numpy_collate_fn, sampler = data.sampler.SequentialSampler(train_set))
-        val_loader = data.DataLoader(val_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
-        test_loader = data.DataLoader(test_set, batch_size=val_batch_size, shuffle=False, drop_last=False, num_workers=4, collate_fn=numpy_collate_fn)
+        val_loader = data.DataLoader(val_set, batch_size=val_batch_size, shuffle=False, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        test_loader = data.DataLoader(test_set, batch_size=val_batch_size, shuffle=False, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
         return train_loader, val_loader, test_loader
 

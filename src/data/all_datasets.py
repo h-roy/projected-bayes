@@ -8,7 +8,7 @@ from src.data.fmnist import FashionMNIST, get_fmnist, get_rotated_fmnist
 from src.data.cifar10 import CIFAR10, get_cifar10, get_cifar10_corrupted
 from src.data.cifar100 import CIFAR100, get_cifar100
 from src.data.svhn import get_svhn
-from src.data.imagenet import ImageNet1k_loaders, get_imagenet_test_loader, get_places365
+from src.data.imagenet import ImageNet1k_loaders,get_imagenet_val_loader, get_imagenet_test_loader, get_places365
 
 def get_dataloaders(
         dataset_name,
@@ -142,6 +142,7 @@ def get_dataloaders(
             download = download, 
             data_path = data_path
         )
+
     elif dataset_name == "CIFAR-100":
         classes = list(range(100))
         train_loader, valid_loader, test_loader = get_cifar100(
@@ -206,8 +207,8 @@ def get_dataloaders(
         return ood_test
     elif dataset_name == "ImageNet":
         train_loader = ImageNet1k_loaders(batch_size=train_batch_size, purp = purp, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
-        valid_loader = get_imagenet_test_loader(batch_size=val_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
-        test_loader = None
+        valid_loader = get_imagenet_val_loader(batch_size=val_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
+        test_loader = get_imagenet_test_loader(batch_size=val_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
     else:
         raise ValueError(f"Dataset {dataset_name} is not implemented")
     
@@ -249,7 +250,7 @@ def get_ood_datasets(experiment,
         for id in ids:
             ood_dict[id] = ood_datasets_dict[id + ('-val' if val else '-test')]
     elif experiment == "ImageNet-OOD":
-        ood_dict["ImageNet"] = get_imagenet_test_loader(batch_size=ood_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
+        ood_dict["ImageNet"] = get_imagenet_val_loader(batch_size=ood_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
         ood_dict["Places365"] = get_places365(batch_size=ood_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
 
     return ood_dict

@@ -1,11 +1,13 @@
 from flax import linen as nn
 from src.models import ResNetBlock_small
+import jax.numpy as jnp
 # Model Hyperparameters
 
 def get_model_hyperparams(n_classes, model_name):
-    if model_name == "ResNet18":
+    if model_name in ["ResNet18", "ResNet34", "ResNet50", "ResNet101", "ResNet152"]:
         hparams = {
             "num_classes": n_classes,
+            "dtype": jnp.float32
         }
     elif model_name in ["DenseNet", "GoogleNet"]:
         hparams = {
@@ -63,7 +65,7 @@ def get_optimizer_hyperparams(model_name):
         optimizer_hparams={"lr": 0.1,
                            "momentum": 0.9,
                            "weight_decay": 1e-4}
-    elif model_name == "ResNet18":
+    elif model_name in ["ResNet18", "ResNet34", "ResNet50", "ResNet101", "ResNet152"]:
         optimizer_name = "SGD"
         optimizer_hparams={"lr": 1e-3,
                            "momentum": 0.9,

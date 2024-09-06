@@ -54,8 +54,8 @@ parser.add_argument("--sample_seed",  type=int, default=0)
 parser.add_argument("--macro_batch_size",  type=int, default=-1)
 parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
-parser.add_argument("--data_sharding", action="store_true", required=False, default=False)
-parser.add_argument("--num_gpus", type=int, default=1)
+parser.add_argument("--acceleration", action="store_true", required=False, default=False)
+parser.add_argument("--checkpoint", type=str, default=None)
 
 
 if __name__ == "__main__":
@@ -78,10 +78,10 @@ if __name__ == "__main__":
             val_batch_size=args.sample_batch_size,
             data_path='/dtu/p1/hroy/data',
             seed=seed,
-            purp='sample'
+            purp='sample',
         ) 
 
-    batch = next(iter(val_loader))
+    batch = next(iter(test_loader))
     img, label = batch["image"], batch["label"]
     x_val, y_val = jnp.asarray(img, dtype=float), jnp.asarray(label, dtype=float)
 
@@ -120,11 +120,16 @@ if __name__ == "__main__":
 
     alpha = args.posthoc_precision
 
-    eps = jax.random.normal(sample_key, (n_samples, n_params))
+    if args.checkpoint is None:
+        eps = jax.random.normal(sample_key, (n_samples, n_params))
+    else:
+        eps = pickle.load(open(f"{args.checkpoint}.pickle", "rb"))['posterior_samples']
+        eps = jax.vmap(lambda sample: jax.tree_map(lambda x,y: x-y, sample, params))(eps)
+        eps, _ = jax.flatten_util.ravel_pytree(eps)
+        n_samples = len(eps) // len(params_vec)
+        eps = jnp.asarray(eps).reshape((n_samples, -1))
 
     #Sample projections
-    data_sharding = args.data_sharding
-    num_gpus = args.num_gpus
     posterior_samples, metrics = sample_loss_projections_dataloader(
                                                       model_fn_vec,
                                                       loss_fn,
@@ -139,7 +144,8 @@ if __name__ == "__main__":
                                                       y_val,
                                                       n_params,
                                                       unflatten,
-                                                      True,
+                                                      False,
+                                                      args.acceleration
                                                       )
 
     print(f"Projection Sampling (for a {n_params} parameter model with {n_iterations} steps, {n_samples} samples) took {time.time()-start_time:.5f} seconds")

@@ -116,7 +116,11 @@ if __name__ == "__main__":
                                                         likelihood,
                                                         "parallel")
     elif method == "SWAG":
-        posterior_samples = swag_score_fun(model, param_dict, sample_key, n_samples, train_loader, likelihood, max_num_models=3, diag_only=False)
+        if 'batch_stats' in param_dict.keys() and param_dict['batch_stats'] != None:
+            batch_stats = True
+        else:
+            batch_stats = None
+        posterior_samples = swag_score_fun(model, param_dict, sample_key, n_samples, train_loader, likelihood, max_num_models=3, diag_only=False, batch_stats=batch_stats)
         metrics = {"time": time.perf_counter() - start_time,}
     elif method == "Subnetwork":
         posterior_samples, metrics = last_layer_lapalce(

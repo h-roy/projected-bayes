@@ -49,19 +49,26 @@ def model_vec_apply(params_vec, x):
 eps = jax.random.normal(key, (n_samples, D))
 alpha = 0.5
 
-# Proj Samples
-# proj_samples, metrics = sample_projections(model_vec_apply,
-#                              params_vec,
-#                              eps,
-#                              alpha,
-#                              X_train_batched,
-#                              output_dim,
-#                              n_iterations,
-#                              x_track,
-#                              D,
-#                              unflatten
-#     )
-proj_samples, metrics = sample_loss_projections(
+#Proj Samples
+proj_samples, metrics = sample_projections(model_vec_apply,
+                             params_vec,
+                             eps,
+                             alpha,
+                             X_train_batched,
+                             output_dim,
+                             n_iterations,
+                             x_track,
+                             D,
+                             unflatten,
+
+    )
+linearised_lapalce = True
+proj_predictive = sample_predictive(proj_samples, params, model_fn, X_val, linearised_lapalce, "Pytree")
+proj_posterior_predictive_mean = jnp.mean(proj_predictive, axis=0).squeeze()
+proj_posterior_predictive_std = jnp.std(proj_predictive, axis=0).squeeze()
+
+#Loss Kernel Samples
+loss_proj_samples, metrics = sample_loss_projections(
                             model_vec_apply,
                             sse_loss_per_datapoint,
                             params_vec,
@@ -74,13 +81,14 @@ proj_samples, metrics = sample_loss_projections(
                             y_track,
                             D,
                             unflatten,
+                            False,
                             False
     )
 
 linearised_lapalce = True
-proj_predictive = sample_predictive(proj_samples, params, model_fn, X_val, linearised_lapalce, "Pytree")
-proj_posterior_predictive_mean = jnp.mean(proj_predictive, axis=0).squeeze()
-proj_posterior_predictive_std = jnp.std(proj_predictive, axis=0).squeeze()
+loss_proj_predictive = sample_predictive(loss_proj_samples, params, model_fn, X_val, linearised_lapalce, "Pytree")
+loss_proj_posterior_predictive_mean = jnp.mean(loss_proj_predictive, axis=0).squeeze()
+loss_proj_posterior_predictive_std = jnp.std(loss_proj_predictive, axis=0).squeeze()
 
 # Full Linearised Samples
 
@@ -106,7 +114,7 @@ diag_posterior_predictive_std = jnp.std(diag_predictive, axis=0).squeeze()
 # Plotting
 X_train, Y_train, X_val, Y_val = X_train.squeeze(), Y_train.squeeze(), X_val.squeeze(), Y_val.squeeze()
 
-fig, ax = plt.subplots(ncols=4, figsize=(40, 10))
+fig, ax = plt.subplots(ncols=5, figsize=(50, 10))
 
 line = ax[0].plot(X_val, proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
 ax[0].fill_between(
@@ -115,38 +123,49 @@ ax[0].fill_between(
 ax[0].plot(X_train, Y_train, "o", label="Training Data")
 ax[0].plot(X_val, Y_val, label="Ground Truth")
 ax[0].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[0].set_title("Projection Posterior")
+ax[0].set_title("Kernel Projection Posterior")
 ax[0].legend()
 
-line = ax[1].plot(X_val, linearised_posterior_predictive_mean, label="Linearised Laplace", marker="None")
+line = ax[1].plot(X_val, loss_proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
 ax[1].fill_between(
-    X_val, linearised_posterior_predictive_mean - linearised_posterior_predictive_std, linearised_posterior_predictive_mean + linearised_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+    X_val, loss_proj_posterior_predictive_mean - loss_proj_posterior_predictive_std, loss_proj_posterior_predictive_mean + loss_proj_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
 )
 ax[1].plot(X_train, Y_train, "o", label="Training Data")
 ax[1].plot(X_val, Y_val, label="Ground Truth")
 ax[1].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[1].set_title("Linearised Laplace")
+ax[1].set_title("Loss Kernel Projection Posterior")
 ax[1].legend()
 
-line = ax[2].plot(X_val, sampled_posterior_predictive_mean, label="Sampled Laplace", marker="None")
+
+line = ax[2].plot(X_val, linearised_posterior_predictive_mean, label="Linearised Laplace", marker="None")
 ax[2].fill_between(
-    X_val, sampled_posterior_predictive_mean - sampled_posterior_predictive_std, sampled_posterior_predictive_mean + sampled_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+    X_val, linearised_posterior_predictive_mean - linearised_posterior_predictive_std, linearised_posterior_predictive_mean + linearised_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
 )
 ax[2].plot(X_train, Y_train, "o", label="Training Data")
 ax[2].plot(X_val, Y_val, label="Ground Truth")
 ax[2].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[2].set_title("Sampled Laplace")
+ax[2].set_title("Linearised Laplace")
 ax[2].legend()
 
-line = ax[3].plot(X_val, diag_posterior_predictive_mean, label="Diagonal Laplace", marker="None")
+line = ax[3].plot(X_val, sampled_posterior_predictive_mean, label="Sampled Laplace", marker="None")
 ax[3].fill_between(
-    X_val, diag_posterior_predictive_mean - diag_posterior_predictive_std, diag_posterior_predictive_mean + diag_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+    X_val, sampled_posterior_predictive_mean - sampled_posterior_predictive_std, sampled_posterior_predictive_mean + sampled_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
 )
 ax[3].plot(X_train, Y_train, "o", label="Training Data")
 ax[3].plot(X_val, Y_val, label="Ground Truth")
 ax[3].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[3].set_title("Diagonal Laplace")
+ax[3].set_title("Sampled Laplace")
 ax[3].legend()
+
+line = ax[4].plot(X_val, diag_posterior_predictive_mean, label="Diagonal Laplace", marker="None")
+ax[4].fill_between(
+    X_val, diag_posterior_predictive_mean - diag_posterior_predictive_std, diag_posterior_predictive_mean + diag_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+)
+ax[4].plot(X_train, Y_train, "o", label="Training Data")
+ax[4].plot(X_val, Y_val, label="Ground Truth")
+ax[4].plot(X_val, model.apply(params, X_val), label="MAP")
+ax[4].set_title("Diagonal Laplace")
+ax[4].legend()
 
 plt.savefig("figures/in_between_uncertainty.pdf")
 

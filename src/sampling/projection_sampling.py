@@ -84,11 +84,17 @@ def sample_projections_dataloader(
             x_train_batched = x_train_batched[:num_batches * num_gpus]
             x_train_batched = jax.device_put(x_train_batched, sharding)
             params_vec = jax.device_put(params_vec, sharding)
+
         batched_eigvecs, batched_inv_eigvals = precompute_inv(model_fn, params_vec, x_train_batched, output_dims, "scan")
+
         proj_vp_fn = lambda v : kernel_proj_vp(vec=v, model_fn=model_fn, params=params_vec, x_train_batched=x_train_batched, 
                                            batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
                                            output_dims=output_dims, n_iterations=n_iterations, x_val=x_val, acceleration=acceleration)
-        projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
+        # projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
+        vmap_dim = 5
+        projected_samples = projected_samples.reshape((-1, vmap_dim) + projected_samples.shape[1:])
+        projected_samples = jax.lax.map(lambda p: jax.vmap(proj_vp_fn)(p), projected_samples)
+        projected_samples = projected_samples.reshape((-1,) + projected_samples.shape[2:])
         del x_train_batched, x_data, batched_eigvecs, batched_inv_eigvals, proj_vp_fn
     trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     if use_optimal_alpha:

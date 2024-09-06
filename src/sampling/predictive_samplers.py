@@ -1,9 +1,10 @@
+from functools import partial
 import jax
 import jax.numpy as jnp
 import tree_math as tm
 from typing import Callable, Literal
 
-
+@partial(jax.jit, static_argnames=( "model_fn", "linearised_laplace", "posterior_sample_type"))
 def sample_predictive(
     posterior_samples,
     params,

@@ -20,8 +20,21 @@ def compute_metrics(i, id, all_y_prob, test_loader, all_y_prob_in, all_y_var, be
         metrics["ece"], metrics["mce"] = get_calib(all_y_prob, labels)
 
     # compute AUROC and FPR95 for OOD benchmarks
-    if benchmark in ["MNIST-OOD", "FMNIST-OOD", "CIFAR-10-OOD"]:
+    if benchmark in ["MNIST-OOD", "FMNIST-OOD", "CIFAR-10-OOD", "SVHN-OOD"]:
         if supress==False: print(f"{benchmark} - dataset: {id}")
+        if i == 0 and benchmark == "SVHN-OOD":
+            labels = np.concatenate([data['label'] for data in test_loader])
+            metrics["brier"] = get_brier_score(all_y_prob, labels)
+            metrics["ece"], metrics["mce"] = get_calib(all_y_prob, labels)
+        if i > 0:
+            # compute other metrics
+            metrics["auroc"] = get_auroc(all_y_prob_in, all_y_prob)
+            metrics["fpr95"], _ = get_fpr95(all_y_prob_in, all_y_prob)
+
+    if benchmark == "ImageNet-OOD":
+        if i == 0:
+            labels = np.concatenate([data['label'] for data in test_loader])
+            metrics["ece"], metrics["mce"] = get_calib(all_y_prob, labels)
         if i > 0:
             # compute other metrics
             metrics["auroc"] = get_auroc(all_y_prob_in, all_y_prob)
