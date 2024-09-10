@@ -10,7 +10,7 @@ module load python3/3.11.4 cuda/12.3.2 cudnn/v8.9.1.23-prod-cuda-12.X
 source proj/bin/activate
 
 # Whichever / however many GPUs you want to use
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=1
 # Don't preallocate memory on interactive clusters
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 ```

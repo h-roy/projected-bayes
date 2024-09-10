@@ -4,6 +4,8 @@ from jax import numpy as jnp
 from typing import Optional
 from typing import Callable, Literal, Optional
 from functools import partial
+
+from tqdm import tqdm
 from src.losses import cross_entropy_loss, gaussian_log_lik_loss
 import flax
 import torch
@@ -13,13 +15,103 @@ import os
 import random
 import numpy as np
 
+def ggn_vector_product_fast(
+            vec: jnp.ndarray,
+            model_fn: Callable,
+            params_vec,
+            train_loader,
+            prod_batch_size: int,
+            vmap_dim: int,
+            likelihood_type: str = "regression",
+
+):
+    """
+    vec: Array of vectors to be multiplied with the GGN.
+    model_fn: Function that takes in vectorized parameters and data and returns the model output.
+    params_vec: Vectorized parameters.
+    alpha: Prior Precision.
+    train_loader: DataLoader for the training data with very large batch size.
+    prod_batch_size: Micro Batch size for the product.
+    likelihood_type: Type of likelihood. Either "regression" or "classification".
+    """
+    # Can also use associative scan [Test later]
+    # Linearize + Lienar transpose could be a bit faster
+    assert vec.shape[0] % vmap_dim == 0
+    out = jnp.zeros_like(vec)
+    for i, batch in enumerate(tqdm(train_loader, desc="Training", leave=False)):
+        x_data = jnp.asarray(batch['image'], dtype=float)
+        N = x_data.shape[0]
+        # assert N % prod_batch_size == 0
+        n_batches = N // prod_batch_size
+        x_train_batched = x_data[:n_batches * prod_batch_size].reshape((n_batches, -1) + x_data.shape[1:])
+        gvp_fn = lambda v: ggn_vector_product(v, model_fn, params_vec, x_train_batched, likelihood_type)
+        vec_t = vec.reshape((-1, vmap_dim) + vec.shape[1:])
+        vec_ = jax.lax.map(lambda p: jax.vmap(gvp_fn)(p), vec_t)
+        out += vec_.reshape(vec.shape)
+    return out
+
+@partial(jax.jit, static_argnames=("model_fn", "likelihood_type", "sum_type"))
+def ggn_vector_product(
+            vec: jnp.ndarray,
+            model_fn: Callable,
+            params_vec: jnp.ndarray,
+            x_train_batched: jnp.ndarray,
+            likelihood_type: str = "regression",
+            sum_type: Literal["running", "parallel"] = "running",
+
+):
+    def gvp(vec):
+        if sum_type == "running":
+            def body_fn(carry, batch):
+                x = batch
+                model_on_data = lambda p: model_fn(p, x)
+                _, J = jax.jvp(model_on_data, (params_vec,), (vec,))
+                pred, model_on_data_vjp = jax.vjp(model_on_data, params_vec)
+                if likelihood_type == "regression":
+                    HJ = J
+                elif likelihood_type == "classification":
+                    pred = jax.nn.softmax(pred, axis=1)
+                    pred = jax.lax.stop_gradient(pred)
+                    D = jax.vmap(jnp.diag)(pred)
+                    H = jnp.einsum("bo, bi->boi", pred, pred)
+                    H = D - H
+                    HJ = jnp.einsum("boi, bi->bo", H, J)
+                else:
+                    raise ValueError(f"Likelihood {likelihood_type} not supported. Use either 'regression' or 'classification'.")
+                JtHJ = model_on_data_vjp(HJ)[0]
+                return JtHJ, None
+            init_carry = jnp.zeros_like(vec)
+            return jax.lax.scan(body_fn, init_carry, x_train_batched)[0]
+        elif sum_type == "running":
+            def body_fn(x):
+                model_on_data = lambda p: model_fn(p, x)
+                _, J = jax.jvp(model_on_data, (params_vec,), (vec,))
+                pred, model_on_data_vjp = jax.vjp(model_on_data, params_vec)
+                if likelihood_type == "regression":
+                    HJ = J
+                elif likelihood_type == "classification":
+                    pred = jax.nn.softmax(pred, axis=1)
+                    pred = jax.lax.stop_gradient(pred)
+                    D = jax.vmap(jnp.diag)(pred)
+                    H = jnp.einsum("bo, bi->boi", pred, pred)
+                    H = D - H
+                    HJ = jnp.einsum("boi, bi->bo", H, J)
+                else:
+                    raise ValueError(f"Likelihood {likelihood_type} not supported. Use either 'regression' or 'classification'.")
+                JtHJ = model_on_data_vjp(HJ)[0]
+                return JtHJ
+            ggn_vp = jax.vmap(body_fn)(x_train_batched)
+            return jnp.sum(ggn_vp, axis=0)
+    return gvp(vec)
 
 def get_ggn_tree_product(
         params,
-        model_fn,
+        model: flax.linen.Module,
         data_array: jax.Array = None,
         data_loader: torch.utils.data.DataLoader = None,
         likelihood_type: str = "regression",
+        is_resnet: bool = False,
+        batch_stats = None
     ):
     """
     takes as input a parameters pytree, a model and a dataset.
@@ -29,7 +121,10 @@ def get_ggn_tree_product(
     if data_array is not None:
         @jax.jit
         def ggn_tree_product(tree):
-            model_on_data = lambda p: model_fn(p, data_array)
+            if is_resnet:
+                model_on_data = lambda p: model.apply({'params': p, 'batch_stats': batch_stats}, data_array, train=False, mutable=False)
+            else:
+                model_on_data = lambda p: model.apply(p, data_array)
             _, J_tree = jax.jvp(model_on_data, (params,), (tree,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
             if likelihood_type == "regression":
@@ -49,7 +144,10 @@ def get_ggn_tree_product(
         assert data_loader is not None
         @jax.jit
         def ggn_tree_product_single_batch(tree, data_array):
-            model_on_data = lambda p: model_fn(p, data_array)
+            if is_resnet:
+                model_on_data = lambda p: model.apply({'params': p, 'batch_stats': batch_stats}, data_array, train=False, mutable=False)
+            else:
+                model_on_data = lambda p: model.apply(p, data_array)
             _, J_tree = jax.jvp(model_on_data, (params,), (tree,))
             pred, model_on_data_vjp = jax.vjp(model_on_data, params)
             if likelihood_type == "regression":
@@ -69,7 +167,7 @@ def get_ggn_tree_product(
         def ggn_tree_product(tree):
             result = jax.tree_util.tree_map(lambda x : x*0, tree)
             for batch in data_loader:
-                data_array = jnp.array(batch[0])
+                data_array = jnp.asarray(batch['image'], dtype=float)
                 JtHJ_tree = ggn_tree_product_single_batch(tree, data_array)
                 result = jax.tree_util.tree_map(lambda a, b: a+b, JtHJ_tree, result)
             return result
@@ -98,7 +196,6 @@ def get_ggn_vector_product(
         is_resnet=is_resnet,
         batch_stats=batch_stats)
     devectorize_fun = jax.flatten_util.ravel_pytree(params)[1]
-    
     def ggn_vector_product(v):
         tree = devectorize_fun(v)
         ggn_tree = ggn_tree_product(tree)
