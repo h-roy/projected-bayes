@@ -63,7 +63,9 @@ parser.add_argument("--data_path", type=str, default="/dtu/p1/hroy/data", help="
 parser.add_argument(
     "--model",
     type=str,
-    choices=["LeNet", "MLP", "ResNet_small", "ResNet18", "DenseNet", "GoogleNet", "VisionTransformer"],
+    choices=["LeNet", "MLP", "ResNet_small", 
+             "ResNet18", "ResNet34", "ResNet50", "ResNet101", "ResNet152", "ResNet200",
+             "DenseNet", "GoogleNet", "VisionTransformer"],
     default="ResNet_small",
 )
 parser.add_argument(
@@ -148,7 +150,6 @@ def main(args: dict):
 
     batch = next(iter(train_loader))
     imgs, labels = batch['image'], batch['label']
-
     rainer, results = train_classifier(
                                         TrainerModule=TRAINERS[args["trainer"]],
                                         model_name=args["model"],
@@ -159,7 +160,7 @@ def main(args: dict):
                                         optimizer_hparams=optimizer_hparams,
                                         exmp_imgs=jax.device_put(
                                                         imgs),
-                                        num_epochs=200,
+                                        num_epochs=args["n_epochs"],
                                         train_loader=train_loader,
                                         val_loader=val_loader,
                                         test_loader=test_loader,

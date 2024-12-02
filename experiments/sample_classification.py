@@ -59,6 +59,7 @@ parser.add_argument("--data_sharding", action="store_true", required=False, defa
 parser.add_argument("--num_gpus", type=int, default=1)
 parser.add_argument("--acceleration", action="store_true", required=False, default=False)
 parser.add_argument("--checkpoint", type=str, default=None)
+parser.add_argument("--vmap_dim", type=int, default=5)
 
 if __name__ == "__main__":
     now = datetime.datetime.now()
@@ -131,6 +132,8 @@ if __name__ == "__main__":
     data_sharding = args.data_sharding
     num_gpus = args.num_gpus
     acceleration = args.acceleration
+    vmap_dim = args.vmap_dim
+    assert n_samples % vmap_dim == 0
     posterior_samples, metrics = sample_projections_dataloader(
                                                       model_fn_vec,
                                                       params_vec,
@@ -144,6 +147,7 @@ if __name__ == "__main__":
                                                       x_val,
                                                       n_params,
                                                       unflatten,
+                                                      vmap_dim,
                                                       False,
                                                       data_sharding,
                                                       num_gpus,

@@ -7,6 +7,8 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import optax
+from src.baselines.laplace_baselines import last_layer_lapalce
+from src.laplace.last_layer.extract_last_layer import last_layer_ggn
 from src.models.fc import FC_NN
 import tree_math as tm
 from src.helper import compute_num_params, tree_random_normal_like
@@ -111,30 +113,60 @@ diag_predictive = sample_predictive(diag_samples, params, model_fn, X_val, False
 diag_posterior_predictive_mean = jnp.mean(diag_predictive, axis=0).squeeze()
 diag_posterior_predictive_std = jnp.std(diag_predictive, axis=0).squeeze()
 
+# Last-layer GGN samples
+ggn_ll = last_layer_ggn(model_fn, params, X_train, "regression", None)
+prec = ggn_ll + alpha * jnp.eye(ggn_ll.shape[0])
+N_llla = ggn_ll.shape[0]
+map_fl = params_vec.at[:-N_llla].get()
+map_ll = params_vec.at[-N_llla:].get()
+def sample(key):
+    eps = jax.random.normal(key, shape=(ggn_ll.shape[0],))
+    sample = jnp.linalg.cholesky(jnp.linalg.inv(prec)) @ eps
+    return sample + map_ll
+key_list = jax.random.split(key, n_samples)
+posterior_ll_samples = jax.vmap(sample)(key_list)
+last_layer_samples = jax.vmap(lambda x: unflatten(jnp.concatenate([map_fl, x])))(posterior_ll_samples)
+last_layer_predictive = sample_predictive(last_layer_samples, params, model_fn, X_val, False, "Pytree")
+last_layer_posterior_predictive_mean = jnp.mean(last_layer_predictive, axis=0).squeeze()
+last_layer_posterior_predictive_std = jnp.std(last_layer_predictive, axis=0).squeeze()
+
+
 # Plotting
 X_train, Y_train, X_val, Y_val = X_train.squeeze(), Y_train.squeeze(), X_val.squeeze(), Y_val.squeeze()
 
 fig, ax = plt.subplots(ncols=5, figsize=(50, 10))
 
-line = ax[0].plot(X_val, proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
+# line = ax[0].plot(X_val, proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
+# ax[0].fill_between(
+#     X_val, proj_posterior_predictive_mean - proj_posterior_predictive_std, proj_posterior_predictive_mean + proj_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+# )
+# ax[0].plot(X_train, Y_train, "o", label="Training Data")
+# ax[0].plot(X_val, Y_val, label="Ground Truth")
+# ax[0].plot(X_val, model.apply(params, X_val), label="MAP")
+# ax[0].set_title("Kernel Projection Posterior")
+# ax[0].legend()
+
+line = ax[0].plot(X_val, loss_proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
 ax[0].fill_between(
-    X_val, proj_posterior_predictive_mean - proj_posterior_predictive_std, proj_posterior_predictive_mean + proj_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+    X_val, loss_proj_posterior_predictive_mean - loss_proj_posterior_predictive_std, loss_proj_posterior_predictive_mean + loss_proj_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
 )
 ax[0].plot(X_train, Y_train, "o", label="Training Data")
 ax[0].plot(X_val, Y_val, label="Ground Truth")
 ax[0].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[0].set_title("Kernel Projection Posterior")
+ax[0].set_title("Loss Kernel Projection Posterior")
 ax[0].legend()
 
-line = ax[1].plot(X_val, loss_proj_posterior_predictive_mean, label="Projection Posterior", marker="None")
+
+line = ax[1].plot(X_val, last_layer_posterior_predictive_mean, label="Projection Posterior", marker="None")
 ax[1].fill_between(
-    X_val, loss_proj_posterior_predictive_mean - loss_proj_posterior_predictive_std, loss_proj_posterior_predictive_mean + loss_proj_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
+    X_val, last_layer_posterior_predictive_mean - last_layer_posterior_predictive_std, last_layer_posterior_predictive_mean + last_layer_posterior_predictive_std, alpha=0.1, color=line[0].get_color()
 )
 ax[1].plot(X_train, Y_train, "o", label="Training Data")
 ax[1].plot(X_val, Y_val, label="Ground Truth")
 ax[1].plot(X_val, model.apply(params, X_val), label="MAP")
-ax[1].set_title("Loss Kernel Projection Posterior")
+ax[1].set_title("Last-Layer Posterior")
 ax[1].legend()
+
 
 
 line = ax[2].plot(X_val, linearised_posterior_predictive_mean, label="Linearised Laplace", marker="None")

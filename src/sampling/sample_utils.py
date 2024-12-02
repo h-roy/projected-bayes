@@ -38,4 +38,4 @@ def linearize_model_fn(model_fn, linearization_params):
         model_fn_p = lambda p: model_fn(p, x)
         jvp = jax.jvp(model_fn_p, (linearization_params,), (centered_params,))[1]
         return map_pred + jvp
-    return linearized_model_fn
+    return jax.jit(linearized_model_fn)

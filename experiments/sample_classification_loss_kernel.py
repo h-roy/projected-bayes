@@ -56,6 +56,7 @@ parser.add_argument("--sample_batch_size",  type=int, default=32)
 parser.add_argument("--posthoc_precision",  type=float, default=1.0)
 parser.add_argument("--acceleration", action="store_true", required=False, default=False)
 parser.add_argument("--checkpoint", type=str, default=None)
+parser.add_argument("--vmap_dim", type=int, default=5)
 
 
 if __name__ == "__main__":
@@ -128,6 +129,8 @@ if __name__ == "__main__":
         eps, _ = jax.flatten_util.ravel_pytree(eps)
         n_samples = len(eps) // len(params_vec)
         eps = jnp.asarray(eps).reshape((n_samples, -1))
+    vmap_dim = args.vmap_dim
+    assert n_samples % vmap_dim == 0
 
     #Sample projections
     posterior_samples, metrics = sample_loss_projections_dataloader(
@@ -144,6 +147,7 @@ if __name__ == "__main__":
                                                       y_val,
                                                       n_params,
                                                       unflatten,
+                                                      vmap_dim,
                                                       False,
                                                       args.acceleration
                                                       )

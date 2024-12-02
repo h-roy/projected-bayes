@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Callable, Optional, Literal
 import jax
 import tree_math as tm
@@ -50,7 +51,33 @@ def sample_loss_projections(
     metrics = {"kernel_dim": trace_proj, "alpha": alpha}
     return posterior_samples, metrics
 
-
+@partial(jax.jit, static_argnames=( "loss_fn", "model_fn", "acceleration", "vmap_dim"))
+def inplace_projection(
+    model_fn: Callable,
+    loss_fn: Callable,
+    params_vec,
+    projected_samples,
+    x_train_batched: jnp.ndarray, 
+    y_train_batched: jnp.ndarray,
+    n_iterations: int,
+    x_val: jnp.ndarray,
+    y_val: jnp.ndarray,
+    vmap_dim: int = 5,
+    acceleration: bool = False
+):
+    batched_eigvecs, batched_inv_eigvals = precompute_loss_inv(model_fn, loss_fn, params_vec, x_train_batched, y_train_batched)
+    proj_vp_fn = lambda v : loss_kernel_proj_vp(vec=v, model_fn=model_fn, loss_fn=loss_fn, params=params_vec, 
+                                            x_train_batched=x_train_batched, y_train_batched=y_train_batched, batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
+                                            n_iterations=n_iterations, x_val=x_val, y_val=y_val, acceleration=acceleration)
+    temp_proj_samples = jax.vmap(proj_vp_fn)(projected_samples)
+    # projected_samples_ = projected_samples.reshape((-1, vmap_dim) + projected_samples.shape[1:])
+    # temp_proj_samples = jax.lax.map(lambda p: jax.vmap(proj_vp_fn)(p), projected_samples_) 
+    # temp_proj_samples = temp_proj_samples.reshape((-1,) + temp_proj_samples.shape[2:])
+    projected_samples = projected_samples.at[:].set(temp_proj_samples)
+    # projected_samples = projected_samples.reshape((-1,) + projected_samples.shape[2:])
+    # del batched_eigvecs, batched_inv_eigvals, proj_vp_fn
+    # jax.clear_caches()
+    return projected_samples
 
 def sample_loss_projections_dataloader( 
     model_fn: Callable,
@@ -66,6 +93,7 @@ def sample_loss_projections_dataloader(
     y_val: jnp.ndarray,
     n_params,
     unflatten_fn: Callable,
+    vmap_dim: int = 5,
     use_optimal_alpha: bool = False,
     acceleration: bool = False
 ):
@@ -82,8 +110,15 @@ def sample_loss_projections_dataloader(
         proj_vp_fn = lambda v : loss_kernel_proj_vp(vec=v, model_fn=model_fn, loss_fn=loss_fn, params=params_vec, 
                                                     x_train_batched=x_train_batched, y_train_batched=y_train_batched, batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
                                                     n_iterations=n_iterations, x_val=x_val, y_val=y_val, acceleration=acceleration)
-        projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
-        del x_train_batched, x_data, batched_eigvecs, batched_inv_eigvals, proj_vp_fn
+        del x_train_batched, x_data, y_train_batched, y_data, batched_eigvecs, batched_inv_eigvals, proj_vp_fn
+        # projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
+        # projected_samples = projected_samples.reshape((-1, vmap_dim) + projected_samples.shape[1:])
+        # projected_samples = jax.lax.map(lambda p: jax.vmap(proj_vp_fn)(p), projected_samples)
+        # projected_samples = projected_samples.reshape((-1,) + projected_samples.shape[2:])
+        # projected_samples = inplace_projection(model_fn, loss_fn, params_vec, projected_samples, 
+        #                                        x_train_batched, y_train_batched, n_iterations, x_val, y_val, vmap_dim, acceleration)
+        # del x_train_batched, x_data
+        # jax.clear_caches()
     trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     if use_optimal_alpha:
         print("Initial alpha:", alpha)
@@ -104,6 +139,7 @@ def sample_loss_gen_projections_dataloader(
     n_iterations: int,
     x_val: jnp.ndarray,
     unflatten_fn: Callable,
+    vmap_dim: int = 5,
     acceleration: bool = False
 ):
     set_seed(seed)
@@ -118,7 +154,11 @@ def sample_loss_gen_projections_dataloader(
         proj_vp_fn = lambda v : loss_kernel_gen_proj_vp(vec=v, loss_model_fn=loss_model_fn, params=params_vec, 
                                                     x_train_batched=x_train_batched, batched_eigvecs=batched_eigvecs, batched_inv_eigvals=batched_inv_eigvals, 
                                                     n_iterations=n_iterations, x_val=x_val, acceleration=acceleration)
-        projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
+        # projected_samples = jax.vmap(proj_vp_fn)(projected_samples)
+        projected_samples = projected_samples.reshape((-1, vmap_dim) + projected_samples.shape[1:])
+        projected_samples = jax.lax.map(lambda p: jax.vmap(proj_vp_fn)(p), projected_samples)
+        projected_samples = projected_samples.reshape((-1,) + projected_samples.shape[2:])
+
         del x_train_batched, x_data, batched_eigvecs, batched_inv_eigvals, proj_vp_fn
     trace_proj = (jax.vmap(lambda e, x: jnp.dot(e, x), in_axes=(0,0))(eps, projected_samples)).mean()
     posterior_samples = jax.vmap(lambda single_sample: unflatten_fn(params_vec + single_sample))(projected_samples)

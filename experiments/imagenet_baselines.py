@@ -26,7 +26,6 @@ parser.add_argument(
 )
 
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/CIFAR10/ResNet_small_CIFAR-10_0_params", help="path of model")
-parser.add_argument("--method", type=str, choices=["Subnetwork", "Hutchinson_Diag", "Exact_Diag", "SWAG"], default="last_layer_laplace", help="Method to use for sampling")
 parser.add_argument("--run_name", default=None, help="Fix the save file name.")
 parser.add_argument("--num_samples", type=int, default=5)
 parser.add_argument("--sample_seed",  type=int, default=0)
@@ -88,54 +87,23 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     num_ll_params = args.num_ll_params
     likelihood = args.likelihood
-    method = args.method
 
 
     hutchinson_samples = args.hutchinson_samples
     num_levels = args.hutchinson_levels
     gvp_batch_size = args.gvp_batch_size
-    if method == "Exact_Diag":
-        posterior_samples, metrics = exact_diagonal_laplace(model_fn,
-                                                            params,
-                                                            n_samples,
-                                                            alpha,
-                                                            train_loader,
-                                                            sample_key,
-                                                            output_dim,
-                                                            likelihood,)
-    elif method == "Hutchinson_Diag":
-        posterior_samples, metrics = hutchinson_diagonal_laplace(model_fn, 
-                                                        params, 
-                                                        n_samples,
-                                                        alpha,
-                                                        gvp_batch_size,
-                                                        train_loader,
-                                                        sample_key,
-                                                        num_levels,
-                                                        hutchinson_samples,
-                                                        likelihood,
-                                                        "parallel")
-    elif method == "SWAG":
-        if 'batch_stats' in param_dict.keys() and param_dict['batch_stats'] != None:
-            batch_stats = True
-        else:
-            batch_stats = None
-        posterior_samples = swag_score_fun(model, param_dict, sample_key, n_samples, train_loader, likelihood, max_num_models=3, swa_lr=0.005, diag_only=False, batch_stats=batch_stats)
-        # posterior_samples = swag_score_fun(model, param_dict, sample_key, n_samples, train_loader, likelihood, max_num_models=3, diag_only=False, batch_stats=batch_stats)
-
-        metrics = {"time": time.perf_counter() - start_time,}
-    elif method == "Subnetwork":
-        posterior_samples, metrics = last_layer_lapalce(
-                                        model_fn,
-                                        params,
-                                        alpha,
-                                        sample_key,
-                                        n_samples,
-                                        train_loader,
-                                        num_ll_params,
-                                        "classification",
-                                        )
-    print(f"{method} for a {n_params} parameter model {n_samples} samples took {time.time()-start_time:.5f} seconds")   
+    posterior_samples, metrics = hutchinson_diagonal_laplace(model_fn, 
+                                                    params, 
+                                                    n_samples,
+                                                    alpha,
+                                                    gvp_batch_size,
+                                                    train_loader,
+                                                    sample_key,
+                                                    num_levels,
+                                                    hutchinson_samples,
+                                                    likelihood,
+                                                    "parallel")
+    print(f"A {n_params} parameter model {n_samples} samples took {time.time()-start_time:.5f} seconds")   
     posterior_dict = {
         "posterior_samples": posterior_samples,
     }

@@ -44,15 +44,17 @@ def kernel_proj_vp(
             proj_norm = x_k @ x_k #Qv @ Qv
             _, jvp = jax.jvp(lambda p: model_fn(p, x_val), (params,), (x_k,))
             kernel_norm = jnp.linalg.norm(jvp)
-            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter, proj_norm=proj_norm, kernel_norm=kernel_norm)
+            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter, proj_norm=proj_norm, kernel_norm=kernel_norm/proj_norm)
             return x_k
         else:
             proj_norm = Qv @ Qv
             _, jvp = jax.jvp(lambda p: model_fn(p, x_val), (params,), (Qv,))
             kernel_norm = jnp.linalg.norm(jvp)
-            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter, proj_norm=proj_norm, kernel_norm=kernel_norm)
+            jax.debug.print("Iteration: {iter} Proj Norm: {proj_norm} Kernel Check: {kernel_norm}", iter=iter, proj_norm=proj_norm, kernel_norm=kernel_norm/proj_norm)
             return Qv
     Pv = jax.lax.fori_loop(0, n_iterations, proj_through_data, vec)
+    # if KeyboardInterrupt:
+    #     return Pv
     return Pv
 
 @partial(jax.jit, static_argnames=("output_dims", "model_fn"))

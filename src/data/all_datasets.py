@@ -1,5 +1,5 @@
 import torch
-
+import torchvision
 from src.data.sinusoidal import Sinusoidal, get_sinusoidal
 from src.data.mnist import MNIST, get_mnist, get_rotated_mnist, get_mnist_ood
 from src.data.emnist import EMNIST, get_emnist, get_rotated_emnist
@@ -7,8 +7,9 @@ from src.data.kmnist import KMNIST, get_kmnist, get_rotated_kmnist
 from src.data.fmnist import FashionMNIST, get_fmnist, get_rotated_fmnist
 from src.data.cifar10 import CIFAR10, get_cifar10, get_cifar10_corrupted
 from src.data.cifar100 import CIFAR100, get_cifar100
-from src.data.svhn import get_svhn
+from src.data.svhn import get_svhn, SVHN
 from src.data.imagenet import ImageNet1k_loaders,get_imagenet_val_loader, get_imagenet_test_loader, get_places365
+from src.data.utils import image_to_numpy, numpy_collate_fn, set_seed
 
 def get_dataloaders(
         dataset_name,
@@ -178,7 +179,8 @@ def get_dataloaders(
             transform= transform,
             seed = seed,
             download = download, 
-            data_path = data_path
+            data_path = data_path,
+            n_samples_per_class= int(n_samples/10) if n_samples is not None else None
         )
         ood_test["CIFAR-10-val"] = cifar10_valid_loader
         ood_test["CIFAR-10-test"] = cifar10_test_loader
@@ -244,11 +246,49 @@ def get_ood_datasets(experiment,
         for id in ids:
             _, val_loader, test_loader = get_mnist_ood(id, ood_batch_size, n_samples_per_class=num_samples_per_class, seed=seed)
             ood_dict[id] = val_loader if val else test_loader
-    elif experiment in ["CIFAR-10-OOD", "SVHN-OOD", "CIFAR-100-OOD"]:
-        ood_datasets_dict = get_dataloaders("CIFAR-10-OOD", n_samples=n_samples, seed=seed)
-        ids = ["CIFAR-10", "SVHN", "CIFAR-100"]
-        for id in ids:
-            ood_dict[id] = ood_datasets_dict[id + ('-val' if val else '-test')]
+    # elif experiment in ["CIFAR-10-OOD", "SVHN-OOD", "CIFAR-100-OOD"]:
+    #     ood_datasets_dict = get_dataloaders("CIFAR-10-OOD", val_batch_size=ood_batch_size, n_samples=n_samples, seed=seed)
+    #     ids = ["CIFAR-10", "SVHN", "CIFAR-100"]
+    #     for id in ids:
+    #         ood_dict[id] = ood_datasets_dict[id + ('-val' if val else '-test')]
+    elif experiment == "CIFAR-10-OOD":
+        train_dataset = torchvision.datasets.CIFAR10(root='/dtu/p1/hroy/data', train=True, download=True)
+        means = (train_dataset.data / 255.0).mean(axis=(0,1,2))
+        std = (train_dataset.data / 255.0).std(axis=(0,1,2))
+        normalize = image_to_numpy(means, std)
+        test_set = torchvision.datasets.CIFAR10(root='/dtu/p1/hroy/data', train=False, download=True, transform=normalize)
+        test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), 10).numpy()
+        svhn_test_set = SVHN(root='/dtu/p1/hroy/data', split='test', download=True, transform=normalize)
+        cifar100_test_set = torchvision.datasets.CIFAR100(root='/dtu/p1/hroy/data', train=False, download=True, transform=normalize)
+        cifar100_test_set.targets = torch.nn.functional.one_hot(torch.tensor(cifar100_test_set.targets), 100).numpy()
+        if n_samples is not None:
+            set_seed(seed)
+            test_set, _ = torch.utils.data.random_split(test_set, [n_samples, len(test_set)-n_samples])
+            svhn_test_set, _  = torch.utils.data.random_split(svhn_test_set, [n_samples, len(svhn_test_set)-n_samples])
+            cifar100_test_set, _  = torch.utils.data.random_split(cifar100_test_set, [n_samples, len(cifar100_test_set)-n_samples])
+        ood_dict["CIFAR-10"] = torch.utils.data.DataLoader(test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        ood_dict["SVHN"] = torch.utils.data.DataLoader(svhn_test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        ood_dict["CIFAR-100"] = torch.utils.data.DataLoader(cifar100_test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        return ood_dict
+    elif experiment == "SVHN-OOD":
+        train_dataset = torchvision.datasets.SVHN(root='/dtu/p1/hroy/data', split='train', download=True)
+        means = (train_dataset.data / 255.0).mean(axis=(0,2,3))
+        std = (train_dataset.data / 255.0).std(axis=(0,2,3))
+        normalize = image_to_numpy(means, std)
+        test_set = SVHN(root='/dtu/p1/hroy/data', split='test', download=True, transform=normalize)
+        cifar10_test_set = torchvision.datasets.CIFAR10(root='/dtu/p1/hroy/data', train=False, download=True, transform=normalize)
+        cifar10_test_set.targets = torch.nn.functional.one_hot(torch.tensor(cifar10_test_set.targets), 10).numpy()
+        cifar100_test_set = torchvision.datasets.CIFAR100(root='/dtu/p1/hroy/data', train=False, download=True, transform=normalize)
+        cifar100_test_set.targets = torch.nn.functional.one_hot(torch.tensor(cifar100_test_set.targets), 100).numpy()
+        if n_samples is not None:
+            set_seed(seed)
+            test_set, _ = torch.utils.data.random_split(test_set, [n_samples, len(test_set)-n_samples])
+            cifar10_test_set, _  = torch.utils.data.random_split(cifar10_test_set, [n_samples, len(cifar10_test_set)-n_samples])
+            cifar100_test_set, _  = torch.utils.data.random_split(cifar100_test_set, [n_samples, len(cifar100_test_set)-n_samples])
+        ood_dict["SVHN"] = torch.utils.data.DataLoader(test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        ood_dict["CIFAR-10"] = torch.utils.data.DataLoader(cifar10_test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        ood_dict["CIFAR-100"] = torch.utils.data.DataLoader(cifar100_test_set, batch_size=ood_batch_size, shuffle=True, drop_last=True, num_workers=4, collate_fn=numpy_collate_fn)
+        return ood_dict
     elif experiment == "ImageNet-OOD":
         ood_dict["ImageNet"] = get_imagenet_val_loader(batch_size=ood_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)
         ood_dict["Places365"] = get_places365(batch_size=ood_batch_size, seed=seed, n_samples_per_class=int(n_samples/1000) if n_samples is not None else None)

@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 from src.data.all_datasets import get_dataloaders
-from src.data.utils import save_image
+from src.data.utils import get_output_dim, save_image
 from src.helper import load_obj, set_seed
 from src.sampling import sample_loss_gen_projections_dataloader
-from src.sampling.sample_utils import vectorize_nn, linearize_model_fn
+from src.sampling.sample_utils import vectorize_nn
 from src.training import TRAINERS, get_model_hyperparams, get_optimizer_hyperparams
 from src.training.train_utils import train
 matplotlib.rcParams['lines.linewidth'] = 2.0
@@ -26,9 +26,7 @@ import seaborn as sns
 sns.reset_orig()
 import wandb
 from src.models import vae 
-from src.models.vae import Encoder, Decoder, reparameterize
-
-
+from src.models.vae import Encoder, Decoder
 ## Progress bar
 from tqdm.auto import tqdm
 from src.training.classification_trainer import Classification_Trainer
@@ -61,7 +59,6 @@ from src.models import MODELS_DICT, ResNetBlock_small, ResNet_small
 import optax
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", type=str, choices=["MNIST", "FMNIST"], default="MNIST")
 parser.add_argument("--data_path", type=str, default="/dtu/p1/hroy/data", help="root of dataset")
 parser.add_argument("--num_iterations", type=int, default=1000)
 parser.add_argument("--num_samples", type=int, default=5)
@@ -73,14 +70,13 @@ parser.add_argument("--seed", default=0, type=int)
 parser.add_argument("--latents", default=20, type=int)
 parser.add_argument("--train_samples", default=None, type=int, help="Number of training samples per class.")
 parser.add_argument("--prior_precision", default=0.01, type=float, help="scaling distance.")
-parser.add_argument("--vmap_dim", type=int, default=5)
 
 
 def kl_divergence_perdatapoint(mean, logvar):
   return -0.5 * (1 + logvar - jnp.square(mean) - jnp.exp(logvar)).sum(axis=-1)
 
 def mse_recon_loss_perdatapoint(recon_imgs, imgs):
-    loss = ((recon_imgs - imgs) ** 2).sum(axis=(-1, -2, -3))  # Mean over batch, sum over pixels
+    loss = ((recon_imgs - imgs) ** 2).sum(axis=-1)  # Mean over batch, sum over pixels
     return loss
 
 @jax.vmap
@@ -88,7 +84,7 @@ def kl_divergence(mean, logvar):
   return -0.5 * jnp.sum(1 + logvar - jnp.square(mean) - jnp.exp(logvar))
 
 def mse_recon_loss(recon_imgs, imgs):
-    loss = (jnp.square(recon_imgs - imgs) ** 2).mean(axis=0).sum()  # Mean over batch, sum over pixels
+    loss = ((recon_imgs - imgs) ** 2).mean(axis=0).sum()  # Mean over batch, sum over pixels
     return loss
 
 def compute_metrics(recon_x, x, mean, logvar):
@@ -96,27 +92,28 @@ def compute_metrics(recon_x, x, mean, logvar):
   kld_loss = kl_divergence(mean, logvar).mean()
   return {'mse': mse_loss, 'kld': kld_loss, 'loss': mse_loss + kld_loss}
 
-def eval_f(params, images, z, z_rng, model_fn, decode_fn):
-  def eval_model(model_fn):
-    encoder_params, decoder_params = params
-    recon_images, (mean, logvar) = model_fn(encoder_params, decoder_params, images, z_rng)
+def eval_f(params_sample, images, z, z_rng, latents):
+  def eval_model(vae):
+    recon_images, mean, logvar = vae(images, z_rng)
     comparison = jnp.concatenate([
         images[:8].reshape(-1, 28, 28, 1),
         recon_images[:8].reshape(-1, 28, 28, 1),
     ])
-    generate_images = decode_fn(decoder_params, z)
+
+    generate_images = vae.generate(z)
     generate_images = generate_images.reshape(-1, 28, 28, 1)
     metrics = compute_metrics(recon_images, images, mean, logvar)
     return metrics, comparison, generate_images
-  return eval_model(model_fn)
+
+  return nn.apply(eval_model, vae.model(latents))({'params': params_sample})
 
 
 def main(args: dict):
     set_seed(args["seed"])
     print("Device:", jax.devices()[0])
-    dataset = args["dataset"]
+
     train_loader, val_loader, test_loader = get_dataloaders(
-        dataset_name=dataset,
+        dataset_name="MNIST",
         train_batch_size=args["macro_batch_size"],
         val_batch_size=args["sample_batch_size"],
         data_path=args["data_path"],
@@ -129,36 +126,29 @@ def main(args: dict):
     rng, key = random.split(rng)
     batch = next((iter(train_loader)))
     img = jnp.asarray(batch['image'], float)
-    # img = img.reshape((img.shape[0], -1))
+    img = img.reshape((img.shape[0], -1))
 
 
-    state_dict = pickle.load(open(f"./checkpoints/VAE/{dataset}/vae_params.pickle", "rb"))
-    encoder_params, decoder_params = state_dict['params']
+    state_dict = pickle.load(open("./checkpoints/VAE/_vae_params.pickle", "rb"))
+    params = state_dict['params']
     rng = state_dict['rng']
-    encoder = vae.Encoder(c_hid=20, latents=args["latents"])
-    decoder = vae.Decoder(c_out=1, c_hid=20, latents=args["latents"])
-    # encoder_params = {"params": params['params']['encoder']}
-    # decoder_params = {"params": params['params']['decoder']}
-    model_fn = lambda p, x: decoder.apply(p, x)
-    params_vec, unflatten, model_fn_vec = vectorize_nn(model_fn, decoder_params)
-    linearized_decoder = linearize_model_fn(model_fn, decoder_params)
+    model_fn = lambda p, x: vae.model(args["latents"]).apply({'params': p}, x, rng)
+    params_vec, unflatten, model_fn_vec = vectorize_nn(model_fn, params)
+    # loss_fn = lambda pred, target: 
     n_iterations = args["num_iterations"]
     n_samples = args["num_samples"]
     n_params = len(params_vec)
     print("Number of parameters:", n_params)
-    vmap_dim = args["vmap_dim"]
-    assert n_samples % vmap_dim == 0
 
     sample_key = jax.random.PRNGKey(args["seed"])
     alpha = 0.1
     eps = jax.random.normal(sample_key, (n_samples, n_params))
-    model_fn = lambda pe, pd, x, rng: (decoder.apply(pd, reparameterize(encoder.apply(pe, x), rng)), encoder.apply(pe, x))
-    def encoder_loss_model_fn(decoder_params_vec, imgs, encoder_params, rng):
-        z = reparameterize(encoder.apply(encoder_params, imgs), rng)
-        recon_imgs = model_fn_vec(decoder_params_vec, z)
-        loss = mse_recon_loss_perdatapoint(recon_imgs, imgs)
+    def loss_model_fn(params_vec, x):
+        recon_x, mean, logvar = model_fn_vec(params_vec, x)
+        mse_recon = mse_recon_loss_perdatapoint(recon_x, x)
+        kld_loss = kl_divergence_perdatapoint(mean, logvar)
+        loss = mse_recon + kld_loss
         return loss
-    loss_model_fn = lambda params_vec, x: encoder_loss_model_fn(params_vec, x, encoder_params, rng)
     posterior_samples, metrics = sample_loss_gen_projections_dataloader(
                                                       loss_model_fn,
                                                       params_vec,
@@ -169,34 +159,30 @@ def main(args: dict):
                                                       n_iterations,
                                                       img,
                                                       unflatten,
-                                                      vmap_dim,
                                                       acceleration=True
                                                       )
-    
     test_imgs = next(iter(test_loader))['image']
-    test_imgs = jnp.asarray(test_imgs, float)#.reshape((test_imgs.shape[0], -1))
+    test_imgs = jnp.asarray(test_imgs, float).reshape((test_imgs.shape[0], -1))
     z_key, eval_rng = random.split(rng)
     z = jax.random.normal(z_key, (64, args["latents"]))
+
     prior_precision = args["prior_precision"]
-    posterior_samples = jax.vmap(lambda sample: jax.tree_map(lambda x, y: (x - y) * prior_precision + y, sample, decoder_params))(posterior_samples)
+    posterior_samples = jax.vmap(lambda sample: jax.tree_map(lambda x, y: (x - y) * prior_precision + y, sample, params))(posterior_samples)
     std_recon = []
     std_gen = []
-    # eval_model_fn = lambda pe, pd, x, rng: (decoder.apply(pd, reparameterize(encoder.apply(pe, x), rng)), encoder.apply(pe, x))
-    eval_model_fn = lambda pe, pd, x, rng: (linearized_decoder(pd, reparameterize(encoder.apply(pe, x), rng)), encoder.apply(pe, x))
     for i in range(n_samples):
         param_sample = jax.tree_map(lambda x: x[i], posterior_samples)
         metrics, comparison, sample = eval_f(
-                (encoder_params, param_sample), test_imgs, z, eval_rng, eval_model_fn, linearized_decoder #decoder.apply
+                param_sample, test_imgs, z, eval_rng, args["latents"]
             )
         save_image(
-            comparison, f'./results/VAE/{dataset}/reconstruction_sample_{i}.pdf', nrow=8
-        )
-        save_image(sample, f'./results/VAE/{dataset}/generation_sample_{i}.pdf', nrow=8)
+                comparison, f'./results/VAE/reconstruction_sample_{i}.png', nrow=8
+            )
+        save_image(sample, f'./results/VAE/genration_sample_{i}.png', nrow=8)
         print(
             'eval sample: {}, loss: {:.4f}, mse: {:.4f}, KLD: {:.4f}'.format(
                 i + 1, metrics['loss'], metrics['mse'], metrics['kld']
-            )
-        )
+            ))
         std_recon.append(comparison[10])
         std_gen.append(sample[10])
     std_recon = (jnp.stack(std_recon)).std(axis=0)
@@ -206,21 +192,12 @@ def main(args: dict):
     ax[0, 1].imshow(sample[10])
     ax[1, 0].imshow(std_recon)
     ax[1, 1].imshow(std_gen)
-    fig.savefig(f'./results/VAE/{dataset}/reconstruction_std.pdf')
-    fixed_z = jax.random.normal(z_key, (1, args["latents"]))
-    map_sample = decoder.apply(decoder_params, fixed_z)
-    fig, ax = plt.subplots(ncols=n_samples + 1, figsize=(40, 10))
-    ax[0].imshow(map_sample[0])
-    for i in range(n_samples):
-        param_sample = jax.tree_map(lambda x: x[i], posterior_samples)
-        sample = linearized_decoder(param_sample, fixed_z)
-        ax[i+1].imshow(sample[0])
-    fig.savefig(f'./results/VAE/{dataset}/generation_single_sample.pdf')
+    fig.savefig('./results/VAE/reconstruction_std.png')
 
-    save_dir = f"./checkpoints/VAE/{dataset}/posterior_samples/"
+    save_dir = f"./checkpoints/VAE/posterior_samples/"
     os.makedirs(save_dir, exist_ok=True)
     state_dict =  {"params": posterior_samples, "rng": rng}
-    pickle.dump(state_dict, open(f"{save_dir}vae_sample_params.pickle", "wb"))
+    pickle.dump(state_dict, open(f"{save_dir}_vae_sample_params.pickle", "wb"))
 
 if __name__ == "__main__":
     args = parser.parse_args()

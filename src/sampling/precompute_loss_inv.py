@@ -33,6 +33,7 @@ def precompute_loss_inv(
         inv_eigvals = 1/inv_eigvals
         inv_eigvals = jnp.where(idx, 0., inv_eigvals)
         del lmbd, kvp, JJt
+        jax.clear_caches()
         return None, (inv_eigvals, eigvecs)
     init_spec = None
     _, (inv_eigvals, eigvecs) = jax.lax.scan(body_fn, init_spec, (x_train_batched, y_train_batched), unroll=1)

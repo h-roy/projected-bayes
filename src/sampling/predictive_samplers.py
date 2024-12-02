@@ -29,7 +29,6 @@ def sample_predictive(
             x_test=x_test,
             posterior_sample_type=posterior_sample_type,
         )
-
     return predictive_samples
 
 
@@ -53,6 +52,7 @@ def sample_linearised_predictive(
     linearize = lambda p: linearized_predictive_posterior(x_test, p, params_map, pred_map, model_fn)
     if posterior_sample_type == "Pytree":
         posterior_predictive_samples = jax.vmap(linearize)(posterior_samples)
+
     elif posterior_sample_type == "List":
         posterior_predictive_list = []
         for sample in posterior_samples:
@@ -60,7 +60,6 @@ def sample_linearised_predictive(
         posterior_predictive_samples = jnp.stack(posterior_predictive_list)
     else:
         raise ValueError("posterior_sample_type must be either Pytree or List")
-
     return posterior_predictive_samples
 
 

@@ -126,7 +126,7 @@ def swag_score_fun(
         train_loader, 
         likelihood: Literal["classification", "regression"]="classification", 
         diag_only=True, max_num_models=20, swa_c_epochs=1, swa_c_batches=None,
-        swa_lr=0.1, momentum=0.09, wd=3e-4, batch_stats=None
+        swa_lr=0.1, momentum=0.01, wd=3e-4, batch_stats=None
     ):
 
     ########################

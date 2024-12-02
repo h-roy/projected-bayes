@@ -54,11 +54,14 @@ def get_cifar10(
         val_set, _  = torch.utils.data.random_split(val_dataset, [n_data, len(val_dataset)-n_data])
         test_set, _  = torch.utils.data.random_split(test_set, [n_data, len(test_set)-n_data])
         test_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(test_set.dataset.targets), n_classes).numpy()
+
+        # test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.dataset.targets), n_classes).numpy()
         
 
     train_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(train_set.dataset.targets), n_classes).numpy()
     val_set.dataset.targets = torch.nn.functional.one_hot(torch.tensor(val_set.dataset.targets), n_classes).numpy()
-    test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
+    if n_samples_per_class is None:
+        test_set.targets = torch.nn.functional.one_hot(torch.tensor(test_set.targets), n_classes).numpy()
     if train_batch_size < 0:
         train_batch_size = len(train_set)
     if purp == "train":
