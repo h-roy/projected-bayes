@@ -146,3 +146,17 @@ experiments/sharding.ipynb
 experiments/simple_fc_multidevice.ipynb
 experiments/test_imagenet_models.py
 experiments/test_jaxmodels.py
+.vscode/settings.json
+bash/ood_metrics_cifar10.sh
+bash/sample_resnet_cifar10.sh
+bash/sampler_lenet_fmnist.sh
+bash/train_cifar10.sh
+experiments/scratch/data/cifar-10-python.tar.gz
+src/data/__pycache__/imagenet.cpython-39.pyc
+src/data/__pycache__/ood_random.cpython-39.pyc
+src/data/__pycache__/oxford_flowers.cpython-39.pyc
+src/models/__pycache__/diffusion_utils.cpython-39.pyc
+src/models/__pycache__/unet.cpython-39.pyc
+src/models/__pycache__/vae.cpython-39.pyc
+src/sampling/__pycache__/ood_projection.cpython-39.pyc
+src/training/__pycache__/vae_trainer.cpython-39.pyc
