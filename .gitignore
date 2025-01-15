@@ -136,3 +136,13 @@ src/baselines/__pycache__/swag.cpython-39.pyc
 src/sampling/__pycache__/alternating_loss_projections.cpython-39.pyc
 src/sampling/__pycache__/precompute_loss_inv.cpython-39.pyc
 src/sampling/__pycache__/projection_loss_sampling.cpython-39.pyc
+experiments/flax_on_pjit.pynb.ipynb
+experiments/analyze_cifar_samples.py
+experiments/analyze_samples.ipynb
+experiments/imagenet_samples.py
+experiments/makefigs.py
+experiments/sharding_stassed.ipynb
+experiments/sharding.ipynb
+experiments/simple_fc_multidevice.ipynb
+experiments/test_imagenet_models.py
+experiments/test_jaxmodels.py
