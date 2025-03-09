@@ -18,3 +18,10 @@ export XLA_PYTHON_CLIENT_PREALLOCATE=false
 
 ### Sampler
 
+To sample from the projected posterior, simply run:
+
+```bash
+python experiments/sample_classification.py --dataset DATASET --model MODEL --checkpoint_path CHECKPOINT_PATH  --num_samples NUM_SAMPLES --num_iterations NUM_ITERS
+```
+
+
